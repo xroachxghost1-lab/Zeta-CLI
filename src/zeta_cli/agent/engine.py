@@ -9,6 +9,10 @@ from zeta_cli.state import AgentState, StateStore
 from zeta_cli.state.transitions import transition_and_persist
 from zeta_cli.verification.evidence import VerificationEvidence
 from zeta_cli.verification.policies import VerificationPolicy
+from zeta_cli.watchdog.budget import RecoveryBudget
+from zeta_cli.watchdog.coordinator import WatchdogCoordinator
+from zeta_cli.watchdog.events import WatchdogEventRecorder
+from zeta_cli.watchdog.snapshot import progress_record_from_state
 
 
 class AgentEngine:
@@ -24,6 +28,7 @@ class AgentEngine:
         assessor: Assessor | None = None,
         decision_engine: DecisionEngine | None = None,
         verification_policy: VerificationPolicy | None = None,
+        watchdog: WatchdogCoordinator | None = None,
     ) -> None:
         self.planner = planner
         self.executor = executor
@@ -32,6 +37,20 @@ class AgentEngine:
         self.state_store = state_store
         self.journal = journal
         self.verification_policy = verification_policy or VerificationPolicy()
+        self.watchdog = watchdog or WatchdogCoordinator(
+            recorder=WatchdogEventRecorder(journal),
+            budget=RecoveryBudget(max_attempts=3),
+        )
+
+    def _observe_watchdog(self, previous_state: AgentState, current_state: AgentState) -> None:
+        if current_state.task_id is None:
+            return
+
+        self.watchdog.observe(
+            task_id=current_state.task_id,
+            previous=progress_record_from_state(previous_state),
+            current=progress_record_from_state(current_state),
+        )
 
     def start(self, *, task_id: str, goal: str):
         task_id = task_id.strip()
@@ -50,6 +69,16 @@ class AgentEngine:
 
         self.state_store.save(state)
 
+        previous_state = AgentState(
+            task_id=state.task_id,
+            goal=state.goal,
+            phase=state.phase,
+            attempt=state.attempt,
+            progress=state.progress,
+            completed=state.completed,
+            failed=state.failed,
+        )
+
         transition_and_persist(
             state,
             "PLAN",
@@ -57,6 +86,7 @@ class AgentEngine:
             journal=self.journal,
             task_id=task_id,
         )
+        self._observe_watchdog(previous_state, state)
 
         return self.planner.plan(goal)
 

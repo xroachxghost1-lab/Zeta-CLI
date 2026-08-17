@@ -47,8 +47,9 @@ def test_engine_starts_task_and_enters_plan(tmp_path):
 
     events = journal.read()
 
-    assert len(events) == 1
+    assert len(events) == 2
     assert events[0].event_type == "PHASE_CHANGED"
+    assert events[1].event_type == "WATCHDOG_DECISION"
     assert events[0].task_id == "task-1"
     assert events[0].data == {
         "from": "BOOT",
