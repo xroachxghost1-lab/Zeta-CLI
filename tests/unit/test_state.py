@@ -117,3 +117,29 @@ def test_state_store_persists_goal_progress(tmp_path: Path):
     restored = store.load()
 
     assert restored.progress == 75
+
+
+def test_state_store_loads_legacy_state_without_progress(tmp_path: Path):
+    path = tmp_path / "legacy.json"
+    path.write_text(
+        """{
+  "attempt": 2,
+  "completed": false,
+  "failed": false,
+  "goal": "Build the agent",
+  "phase": "PLAN",
+  "task_id": "task-123"
+}
+""",
+        encoding="utf-8",
+    )
+
+    store = StateStore(path)
+
+    restored = store.load()
+
+    assert restored.task_id == "task-123"
+    assert restored.goal == "Build the agent"
+    assert restored.phase == "PLAN"
+    assert restored.attempt == 2
+    assert restored.progress == 0
