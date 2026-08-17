@@ -98,3 +98,61 @@ def test_engine_recover_requires_verify_phase(tmp_path):
 
     assert state_store.load().phase == "ASSESS"
     assert journal.read() == []
+
+
+def test_engine_complete_sets_goal_progress_to_100(tmp_path):
+    planner = MagicMock()
+    state_store = StateStore(tmp_path / "state.json")
+    journal = EventJournal(tmp_path / "events.jsonl")
+
+    state_store.save(
+        AgentState(
+            task_id="task-1",
+            goal="Read README.md",
+            phase="VERIFY",
+            progress=75,
+        )
+    )
+
+    engine = AgentEngine(
+        planner=planner,
+        state_store=state_store,
+        journal=journal,
+    )
+
+    result = engine.complete()
+
+    assert result.phase == "COMPLETE"
+    assert result.progress == 100
+
+    persisted = state_store.load()
+    assert persisted.progress == 100
+
+
+def test_engine_recover_preserves_goal_progress(tmp_path):
+    planner = MagicMock()
+    state_store = StateStore(tmp_path / "state.json")
+    journal = EventJournal(tmp_path / "events.jsonl")
+
+    state_store.save(
+        AgentState(
+            task_id="task-1",
+            goal="Read README.md",
+            phase="VERIFY",
+            progress=75,
+        )
+    )
+
+    engine = AgentEngine(
+        planner=planner,
+        state_store=state_store,
+        journal=journal,
+    )
+
+    result = engine.recover()
+
+    assert result.phase == "RECOVER"
+    assert result.progress == 75
+
+    persisted = state_store.load()
+    assert persisted.progress == 75
