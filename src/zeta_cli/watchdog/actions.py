@@ -19,15 +19,24 @@ def choose_action(
     budget: RecoveryBudget | None = None,
 ) -> WatchdogAction:
     """Select the safest watchdog action for an observation."""
-    if observation.repeated and observation.stalled:
+    repeated_signal = (
+        observation.repeated
+        or observation.repeated_call
+        or observation.repeated_result
+        or observation.repeated_reasoning
+    )
+
+    if repeated_signal and (
+        observation.stalled or observation.no_workspace_progress
+    ):
         return WatchdogAction.STOP
 
-    if observation.stalled:
+    if repeated_signal:
+        return WatchdogAction.REPLAN
+
+    if observation.stalled or observation.no_workspace_progress:
         if budget is not None and not budget.consume():
             return WatchdogAction.STOP
         return WatchdogAction.RECOVER
-
-    if observation.repeated:
-        return WatchdogAction.REPLAN
 
     return WatchdogAction.CONTINUE

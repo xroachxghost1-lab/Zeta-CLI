@@ -179,7 +179,7 @@ def test_engine_observe_watchdog_returns_replan_for_repeated_progress(tmp_path):
 
     watchdog = WatchdogCoordinator(
         recorder=WatchdogEventRecorder(journal),
-        watchdog=Watchdog(stall_threshold=10, repeat_threshold=3),
+        watchdog=Watchdog(stall_threshold=10, repeat_threshold=3, workspace_threshold=10),
     )
 
     engine = AgentEngine(
@@ -197,15 +197,45 @@ def test_engine_observe_watchdog_returns_replan_for_repeated_progress(tmp_path):
         progress=30,
     )
 
+    states = [
+        AgentState(
+            task_id="task-1",
+            goal="Build the agent",
+            phase="EXECUTE",
+            progress=30,
+        ),
+        AgentState(
+            task_id="task-1",
+            goal="Build the agent",
+            phase="EXECUTE",
+            progress=31,
+        ),
+        AgentState(
+            task_id="task-1",
+            goal="Build the agent",
+            phase="EXECUTE",
+            progress=32,
+        ),
+        AgentState(
+            task_id="task-1",
+            goal="Build the agent",
+            phase="EXECUTE",
+            progress=33,
+        ),
+    ]
+
     decisions = [
-        engine._observe_watchdog(state, state),
-        engine._observe_watchdog(state, state),
-        engine._observe_watchdog(state, state),
-        engine._observe_watchdog(state, state),
+        engine._observe_watchdog(
+            states[i],
+            states[i + 1],
+            tool_call_fingerprint="same-call",
+        )
+        for i in range(3)
     ]
 
     assert decisions[-1][1].value == "REPLAN"
-    assert decisions[-1][0].repeated is True
+    assert decisions[-1][0].repeated_call is True
+    assert decisions[-1][0].no_workspace_progress is False
     assert decisions[-1][0].stalled is False
     assert decisions[-1][0].healthy is False
 

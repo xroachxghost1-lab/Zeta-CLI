@@ -222,7 +222,15 @@ class AgentEngine:
             if not planning_result.tool_calls:
                 raise ValueError("no tool call in replanned result")
 
-        return self.executor.execute(planning_result)
+        result = self.executor.execute(planning_result)
+
+        self._observe_tool_result(
+            state,
+            previous_state,
+            result,
+        )
+
+        return result
 
 
     def assess(self, result):
