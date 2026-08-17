@@ -28,11 +28,15 @@ class WatchdogCoordinator:
         previous: ProgressRecord,
         current: ProgressRecord,
         tool_call_fingerprint: str | None = None,
+        tool_result_fingerprint: str | None = None,
+        reasoning_fingerprint: str | None = None,
     ) -> tuple[WatchdogObservation, WatchdogAction]:
         observation = self.watchdog.observe(
             previous,
             current,
             tool_call_fingerprint=tool_call_fingerprint,
+            tool_result_fingerprint=tool_result_fingerprint,
+            reasoning_fingerprint=reasoning_fingerprint,
         )
         action = choose_action(observation, budget=self.budget)
 
