@@ -42,11 +42,11 @@ class AgentEngine:
             budget=RecoveryBudget(max_attempts=3),
         )
 
-    def _observe_watchdog(self, previous_state: AgentState, current_state: AgentState) -> None:
+    def _observe_watchdog(self, previous_state: AgentState, current_state: AgentState):
         if current_state.task_id is None:
             return
 
-        self.watchdog.observe(
+        return self.watchdog.observe(
             task_id=current_state.task_id,
             previous=progress_record_from_state(previous_state),
             current=progress_record_from_state(current_state),

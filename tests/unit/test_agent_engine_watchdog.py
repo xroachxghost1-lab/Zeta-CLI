@@ -136,3 +136,34 @@ def test_engine_retry_records_watchdog_decision(tmp_path):
     assert watchdog_events[0].data["action"] == "CONTINUE"
     assert watchdog_events[0].data["progressed"] is True
     assert watchdog_events[0].data["healthy"] is True
+
+
+def test_engine_observe_watchdog_returns_decision(tmp_path):
+    state_store = StateStore(tmp_path / "state.json")
+    journal = EventJournal(tmp_path / "events.jsonl")
+
+    engine = AgentEngine(
+        planner=MagicMock(),
+        executor=MagicMock(),
+        state_store=state_store,
+        journal=journal,
+    )
+
+    previous = AgentState(
+        task_id="task-1",
+        goal="Build the agent",
+        phase="PLAN",
+        progress=0,
+    )
+    current = AgentState(
+        task_id="task-1",
+        goal="Build the agent",
+        phase="EXECUTE",
+        progress=30,
+    )
+
+    observation, action = engine._observe_watchdog(previous, current)
+
+    assert observation.progressed is True
+    assert observation.healthy is True
+    assert action.value == "CONTINUE"
