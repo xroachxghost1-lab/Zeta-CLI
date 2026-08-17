@@ -159,3 +159,51 @@ def test_watchdog_changed_tool_result_breaks_repetition():
     )
 
     assert observation.repeated_result is False
+
+
+def test_watchdog_detects_repeated_reasoning():
+    watchdog = Watchdog(call_threshold=3)
+
+    previous = ProgressRecord()
+    current = ProgressRecord()
+
+    for fingerprint in ("reason-a", "reason-a"):
+        observation = watchdog.observe(
+            previous,
+            current,
+            reasoning_fingerprint=fingerprint,
+        )
+        assert observation.repeated_reasoning is False
+
+    observation = watchdog.observe(
+        previous,
+        current,
+        reasoning_fingerprint="reason-a",
+    )
+
+    assert observation.repeated_reasoning is True
+    assert observation.healthy is False
+
+
+def test_watchdog_changed_reasoning_breaks_repetition():
+    watchdog = Watchdog(call_threshold=3)
+
+    previous = ProgressRecord()
+    current = ProgressRecord(tool_result_changed=True)
+
+    for fingerprint in ("reason-a", "reason-a"):
+        observation = watchdog.observe(
+            previous,
+            current,
+            reasoning_fingerprint=fingerprint,
+        )
+        assert observation.repeated_reasoning is False
+
+    observation = watchdog.observe(
+        previous,
+        current,
+        reasoning_fingerprint="reason-b",
+    )
+
+    assert observation.repeated_reasoning is False
+    assert observation.healthy is True

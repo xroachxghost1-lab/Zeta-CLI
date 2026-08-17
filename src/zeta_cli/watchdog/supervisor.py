@@ -17,6 +17,7 @@ class WatchdogObservation:
     repeated: bool
     repeated_call: bool = False
     repeated_result: bool = False
+    repeated_reasoning: bool = False
     healthy: bool = True
 
 
@@ -34,6 +35,7 @@ class Watchdog:
         self.repeat_detector = RepeatDetector(threshold=repeat_threshold)
         self.call_detector = CallHistoryDetector(threshold=call_threshold)
         self.result_detector = CallHistoryDetector(threshold=call_threshold)
+        self.reasoning_detector = CallHistoryDetector(threshold=call_threshold)
 
     def observe(
         self,
@@ -42,6 +44,7 @@ class Watchdog:
         *,
         tool_call_fingerprint: str | None = None,
         tool_result_fingerprint: str | None = None,
+        reasoning_fingerprint: str | None = None,
     ) -> WatchdogObservation:
         progressed = progress_changed(previous_progress, current_progress)
 
@@ -49,6 +52,7 @@ class Watchdog:
         repeated = self.repeat_detector.observe(current_progress)
         repeated_call = self.call_detector.observe(tool_call_fingerprint)
         repeated_result = self.result_detector.observe(tool_result_fingerprint)
+        repeated_reasoning = self.reasoning_detector.observe(reasoning_fingerprint)
 
         return WatchdogObservation(
             progressed=progressed,
@@ -56,11 +60,13 @@ class Watchdog:
             repeated=repeated,
             repeated_call=repeated_call,
             repeated_result=repeated_result,
+            repeated_reasoning=repeated_reasoning,
             healthy=(
                 not stalled
                 and not repeated
                 and not repeated_call
                 and not repeated_result
+                and not repeated_reasoning
             ),
         )
 
@@ -69,3 +75,4 @@ class Watchdog:
         self.repeat_detector.reset()
         self.call_detector.reset()
         self.result_detector.reset()
+        self.reasoning_detector.reset()

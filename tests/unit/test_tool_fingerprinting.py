@@ -93,3 +93,19 @@ def test_tool_result_fingerprint_changes_between_success_and_failure():
     )
 
     assert first != second
+
+
+def test_reasoning_fingerprint_is_stable_for_whitespace():
+    from zeta_cli.tools.fingerprinting import reasoning_fingerprint
+
+    assert reasoning_fingerprint("hello   world") == reasoning_fingerprint(
+        " hello world "
+    )
+
+
+def test_reasoning_fingerprint_changes_when_reasoning_changes():
+    from zeta_cli.tools.fingerprinting import reasoning_fingerprint
+
+    assert reasoning_fingerprint("step one") != reasoning_fingerprint(
+        "step two"
+    )
