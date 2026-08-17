@@ -117,6 +117,7 @@ class AgentEngine:
             progress=state.progress,
             completed=state.completed,
             failed=state.failed,
+            strategy=state.strategy,
         )
 
         transition_and_persist(
@@ -171,6 +172,7 @@ class AgentEngine:
             progress=state.progress,
             completed=state.completed,
             failed=state.failed,
+            strategy=state.strategy,
         )
 
         transition_and_persist(
@@ -217,7 +219,19 @@ class AgentEngine:
             return None
 
         if watchdog_action is WatchdogAction.REPLAN:
-            planning_result = self.planner.plan(state.goal)
+            previous_strategy = state.strategy
+            state.strategy = (
+                "alternative"
+                if previous_strategy == "default"
+                else "default"
+            )
+            self.state_store.save(state)
+
+            planning_result = self.planner.plan(
+                f"{state.goal}\n"
+                f"Use strategy: {state.strategy}. "
+                "Change approach from the previous attempt."
+            )
 
             if not planning_result.tool_calls:
                 raise ValueError("no tool call in replanned result")
@@ -257,6 +271,7 @@ class AgentEngine:
             progress=state.progress,
             completed=state.completed,
             failed=state.failed,
+            strategy=state.strategy,
         )
 
         transition_and_persist(
@@ -292,6 +307,7 @@ class AgentEngine:
             progress=state.progress,
             completed=state.completed,
             failed=state.failed,
+            strategy=state.strategy,
         )
 
         transition_and_persist(
@@ -385,6 +401,7 @@ class AgentEngine:
             progress=state.progress,
             completed=state.completed,
             failed=state.failed,
+            strategy=state.strategy,
         )
 
         transition_and_persist(
@@ -425,6 +442,7 @@ class AgentEngine:
             progress=state.progress,
             completed=state.completed,
             failed=state.failed,
+            strategy=state.strategy,
         )
         previous_progress = state.progress
 

@@ -18,6 +18,7 @@ class AgentState:
     progress: int = 0
     completed: bool = False
     failed: bool = False
+    strategy: str = "default"
 
     def __post_init__(self) -> None:
         if self.phase not in ALL_PHASES:
