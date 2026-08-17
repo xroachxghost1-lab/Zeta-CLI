@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
+from threading import Event
 
 from zeta_cli.api.models import ToolCall
 from zeta_cli.errors import ToolError
@@ -24,7 +25,12 @@ class ToolDispatcher:
         if timeout is not None and timeout <= 0:
             raise ValueError("timeout must be greater than zero")
 
-    def dispatch(self, call: ToolCall) -> ToolResult:
+    def dispatch(
+        self,
+        call: ToolCall,
+        *,
+        cancellation: Event | None = None,
+    ) -> ToolResult:
         tool = self.registry.get(call.name)
 
         if tool is None:
@@ -32,6 +38,12 @@ class ToolDispatcher:
 
         if self.safety is not None and not self.safety.is_allowed(call.name):
             raise ToolError(f"tool is not allowed: {call.name!r}")
+
+        if cancellation is not None and cancellation.is_set():
+            return ToolResult(
+                ok=False,
+                error=f"tool {call.name!r} was cancelled before execution",
+            )
 
         if self.timeout is None:
             try:
