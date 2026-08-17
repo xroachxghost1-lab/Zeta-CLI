@@ -9,7 +9,7 @@ from zeta_cli.state import AgentState, StateStore
 
 def make_engine(tmp_path, phase="RECOVER", attempt=0):
     planner = MagicMock()
-    dispatcher = MagicMock()
+    executor = MagicMock()
 
     state_store = StateStore(tmp_path / "state.json")
     journal = EventJournal(tmp_path / "events.jsonl")
@@ -27,7 +27,7 @@ def make_engine(tmp_path, phase="RECOVER", attempt=0):
 
     engine = AgentEngine(
         planner=planner,
-        dispatcher=dispatcher,
+        executor=executor,
         state_store=state_store,
         journal=journal,
     )
@@ -94,7 +94,7 @@ def test_engine_retry_requires_task_id(tmp_path):
 
     engine = AgentEngine(
         planner=MagicMock(),
-        dispatcher=MagicMock(),
+        executor=MagicMock(),
         state_store=state_store,
         journal=journal,
     )

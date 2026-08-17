@@ -1,7 +1,5 @@
 from unittest.mock import MagicMock
 
-import pytest
-
 from zeta_cli.agent.engine import AgentEngine
 from zeta_cli.api.models import CompletionResult, ToolCall
 from zeta_cli.events import EventJournal
@@ -17,7 +15,7 @@ def make_engine(tmp_path, planner, executor):
         AgentState(
             task_id="task-1",
             goal="Read README.md",
-            phase="EXECUTE",
+            phase="PLAN",
         )
     )
 
@@ -29,13 +27,22 @@ def make_engine(tmp_path, planner, executor):
     ), state_store, journal
 
 
-def test_engine_assess_successful_result(tmp_path):
+def test_engine_executes_through_executor(tmp_path):
+    tool_call = ToolCall(
+        id="call-1",
+        name="read_file",
+        arguments={"path": "README.md"},
+    )
+
     planner = MagicMock()
     planner.plan.return_value = CompletionResult(
-        content="The requested work is complete.",
+        tool_calls=[tool_call],
     )
 
     executor = MagicMock()
+    executor.execute.return_value = ToolResult.from_value(
+        "README contents"
+    )
 
     engine, state_store, journal = make_engine(
         tmp_path,
@@ -43,30 +50,25 @@ def test_engine_assess_successful_result(tmp_path):
         executor,
     )
 
-    result = engine.assess(
-        ToolResult.from_value("README contents")
-    )
+    result = engine.execute()
 
-    assert result.content == "The requested work is complete."
+    assert result.ok is True
+    assert result.value == "README contents"
 
-    planner.plan.assert_called_once_with(
-        "Read README.md",
+    executor.execute.assert_called_once_with(
+        planner.plan.return_value
     )
 
     state = state_store.load()
-    assert state.phase == "ASSESS"
+    assert state.phase == "EXECUTE"
 
     events = journal.read()
     assert len(events) == 1
-    assert events[0].data == {
-        "from": "EXECUTE",
-        "to": "ASSESS",
-    }
+    assert events[0].event_type == "PHASE_CHANGED"
 
 
-def test_engine_assess_requires_execute_phase(tmp_path):
+def test_engine_requires_executor_for_execution(tmp_path):
     planner = MagicMock()
-    executor = MagicMock()
 
     state_store = StateStore(tmp_path / "state.json")
     journal = EventJournal(tmp_path / "events.jsonl")
@@ -81,42 +83,13 @@ def test_engine_assess_requires_execute_phase(tmp_path):
 
     engine = AgentEngine(
         planner=planner,
-        executor=executor,
         state_store=state_store,
         journal=journal,
     )
 
-    with pytest.raises(ValueError, match="cannot assess"):
-        engine.assess(
-            ToolResult.from_value("README contents")
-        )
-
-    planner.plan.assert_not_called()
-
-
-def test_engine_assess_requires_task_goal(tmp_path):
-    planner = MagicMock()
-    executor = MagicMock()
-
-    state_store = StateStore(tmp_path / "state.json")
-    journal = EventJournal(tmp_path / "events.jsonl")
-
-    state_store.save(
-        AgentState(
-            task_id="task-1",
-            goal=None,
-            phase="EXECUTE",
-        )
-    )
-
-    engine = AgentEngine(
-        planner=planner,
-        executor=executor,
-        state_store=state_store,
-        journal=journal,
-    )
-
-    with pytest.raises(ValueError, match="goal"):
-        engine.assess(
-            ToolResult.from_value("README contents")
-        )
+    try:
+        engine.execute()
+    except ValueError as error:
+        assert "executor" in str(error)
+    else:
+        raise AssertionError("expected executor requirement")

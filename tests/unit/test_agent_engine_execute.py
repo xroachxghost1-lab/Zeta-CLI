@@ -10,7 +10,7 @@ from zeta_cli.state import AgentState, StateStore
 from zeta_cli.tools.results import ToolResult
 
 
-def make_engine(tmp_path, planner, dispatcher):
+def make_engine(tmp_path, planner, executor):
     state_store = StateStore(tmp_path / "state.json")
     journal = EventJournal(tmp_path / "events.jsonl")
 
@@ -24,7 +24,7 @@ def make_engine(tmp_path, planner, dispatcher):
 
     return AgentEngine(
         planner=planner,
-        dispatcher=dispatcher,
+        executor=executor,
         state_store=state_store,
         journal=journal,
     ), state_store, journal
@@ -43,13 +43,13 @@ def test_engine_executes_planner_tool_call(tmp_path):
         tool_calls=[tool_call],
     )
 
-    dispatcher = MagicMock()
-    dispatcher.dispatch.return_value = ToolResult.from_value("README contents")
+    executor = MagicMock()
+    executor.execute.return_value = ToolResult.from_value("README contents")
 
     engine, state_store, journal = make_engine(
         tmp_path,
         planner,
-        dispatcher,
+        executor,
     )
 
     result = engine.execute()
@@ -57,7 +57,7 @@ def test_engine_executes_planner_tool_call(tmp_path):
     assert result.ok is True
     assert result.value == "README contents"
 
-    dispatcher.dispatch.assert_called_once_with(tool_call)
+    executor.execute.assert_called_once_with(planner.plan.return_value)
 
     state = state_store.load()
     assert state.phase == "EXECUTE"
@@ -84,15 +84,15 @@ def test_engine_returns_tool_failure_without_executing_next_step(tmp_path):
         tool_calls=[tool_call],
     )
 
-    dispatcher = MagicMock()
-    dispatcher.dispatch.return_value = ToolResult.from_exception(
+    executor = MagicMock()
+    executor.execute.return_value = ToolResult.from_exception(
         RuntimeError("read failed")
     )
 
     engine, state_store, journal = make_engine(
         tmp_path,
         planner,
-        dispatcher,
+        executor,
     )
 
     result = engine.execute()
@@ -104,7 +104,7 @@ def test_engine_returns_tool_failure_without_executing_next_step(tmp_path):
     state = state_store.load()
     assert state.phase == "EXECUTE"
 
-    dispatcher.dispatch.assert_called_once_with(tool_call)
+    executor.execute.assert_called_once_with(planner.plan.return_value)
 
 
 def test_engine_propagates_safety_rejection(tmp_path):
@@ -120,15 +120,15 @@ def test_engine_propagates_safety_rejection(tmp_path):
         tool_calls=[tool_call],
     )
 
-    dispatcher = MagicMock()
-    dispatcher.dispatch.side_effect = ToolError(
+    executor = MagicMock()
+    executor.execute.side_effect = ToolError(
         "tool is not allowed: 'shell'"
     )
 
     engine, state_store, journal = make_engine(
         tmp_path,
         planner,
-        dispatcher,
+        executor,
     )
 
     with pytest.raises(ToolError):
@@ -137,7 +137,7 @@ def test_engine_propagates_safety_rejection(tmp_path):
     state = state_store.load()
     assert state.phase == "EXECUTE"
 
-    dispatcher.dispatch.assert_called_once_with(tool_call)
+    executor.execute.assert_called_once_with(planner.plan.return_value)
 
 
 def test_engine_rejects_execute_without_planned_tool(tmp_path):
@@ -147,12 +147,12 @@ def test_engine_rejects_execute_without_planned_tool(tmp_path):
         tool_calls=[],
     )
 
-    dispatcher = MagicMock()
+    executor = MagicMock()
 
     engine, state_store, journal = make_engine(
         tmp_path,
         planner,
-        dispatcher,
+        executor,
     )
 
     with pytest.raises(ValueError, match="no tool call"):
@@ -161,4 +161,4 @@ def test_engine_rejects_execute_without_planned_tool(tmp_path):
     state = state_store.load()
     assert state.phase == "PLAN"
 
-    dispatcher.dispatch.assert_not_called()
+    executor.execute.assert_not_called()

@@ -9,7 +9,7 @@ from zeta_cli.state import AgentState, StateStore
 from zeta_cli.tools.results import ToolResult
 
 
-def make_engine(tmp_path, planner, dispatcher):
+def make_engine(tmp_path, planner, executor):
     state_store = StateStore(tmp_path / "state.json")
     journal = EventJournal(tmp_path / "events.jsonl")
 
@@ -23,7 +23,7 @@ def make_engine(tmp_path, planner, dispatcher):
 
     return AgentEngine(
         planner=planner,
-        dispatcher=dispatcher,
+        executor=executor,
         state_store=state_store,
         journal=journal,
     ), state_store, journal
@@ -35,12 +35,12 @@ def test_engine_verify_successful_assessment(tmp_path):
         content="Verification passed.",
     )
 
-    dispatcher = MagicMock()
+    executor = MagicMock()
 
     engine, state_store, journal = make_engine(
         tmp_path,
         planner,
-        dispatcher,
+        executor,
     )
 
     result = engine.verify(
@@ -65,7 +65,7 @@ def test_engine_verify_successful_assessment(tmp_path):
 
 def test_engine_verify_requires_assess_phase(tmp_path):
     planner = MagicMock()
-    dispatcher = MagicMock()
+    executor = MagicMock()
 
     state_store = StateStore(tmp_path / "state.json")
     journal = EventJournal(tmp_path / "events.jsonl")
@@ -80,7 +80,7 @@ def test_engine_verify_requires_assess_phase(tmp_path):
 
     engine = AgentEngine(
         planner=planner,
-        dispatcher=dispatcher,
+        executor=executor,
         state_store=state_store,
         journal=journal,
     )
@@ -95,7 +95,7 @@ def test_engine_verify_requires_assess_phase(tmp_path):
 
 def test_engine_verify_requires_task_goal(tmp_path):
     planner = MagicMock()
-    dispatcher = MagicMock()
+    executor = MagicMock()
 
     state_store = StateStore(tmp_path / "state.json")
     journal = EventJournal(tmp_path / "events.jsonl")
@@ -110,7 +110,7 @@ def test_engine_verify_requires_task_goal(tmp_path):
 
     engine = AgentEngine(
         planner=planner,
-        dispatcher=dispatcher,
+        executor=executor,
         state_store=state_store,
         journal=journal,
     )

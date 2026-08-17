@@ -9,7 +9,7 @@ from zeta_cli.state import AgentState, StateStore
 
 def make_engine(tmp_path, phase):
     planner = MagicMock()
-    dispatcher = MagicMock()
+    executor = MagicMock()
 
     state_store = StateStore(tmp_path / "state.json")
     journal = EventJournal(tmp_path / "events.jsonl")
@@ -25,7 +25,7 @@ def make_engine(tmp_path, phase):
     return (
         AgentEngine(
             planner=planner,
-            dispatcher=dispatcher,
+            executor=executor,
             state_store=state_store,
             journal=journal,
         ),

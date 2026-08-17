@@ -19,8 +19,8 @@ def test_retry_lifecycle_returns_to_plan_and_can_complete(tmp_path):
         CompletionResult(content="verification"),
     ]
 
-    dispatcher = MagicMock()
-    dispatcher.dispatch.return_value = ToolResult.from_value("README contents")
+    executor = MagicMock()
+    executor.execute.return_value = ToolResult.from_value("README contents")
 
     policy = MagicMock()
     policy.evaluate.return_value = VerificationResult(
@@ -43,7 +43,7 @@ def test_retry_lifecycle_returns_to_plan_and_can_complete(tmp_path):
 
     engine = AgentEngine(
         planner=planner,
-        dispatcher=dispatcher,
+        executor=executor,
         state_store=state_store,
         journal=journal,
         verification_policy=policy,
@@ -74,7 +74,7 @@ def test_retry_lifecycle_returns_to_plan_and_can_complete(tmp_path):
     assert verify_result.failed is False
 
     planner.plan.assert_any_call("Read README.md")
-    dispatcher.dispatch.assert_called_once()
+    executor.execute.assert_called_once()
 
     events = journal.read()
 

@@ -28,7 +28,7 @@ def make_engine(tmp_path, policy):
 
     engine = AgentEngine(
         planner=planner,
-        dispatcher=MagicMock(),
+        executor=MagicMock(),
         state_store=state_store,
         journal=journal,
         verification_policy=policy,

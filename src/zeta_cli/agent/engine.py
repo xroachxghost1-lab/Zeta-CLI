@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from zeta_cli.agent.executor import Executor
 from zeta_cli.agent.planner import Planner
 from zeta_cli.events import EventJournal
 from zeta_cli.state import AgentState, StateStore
@@ -17,11 +18,11 @@ class AgentEngine:
         planner: Planner,
         state_store: StateStore,
         journal: EventJournal,
-        dispatcher=None,
+        executor: Executor | None = None,
         verification_policy: VerificationPolicy | None = None,
     ) -> None:
         self.planner = planner
-        self.dispatcher = dispatcher
+        self.executor = executor
         self.state_store = state_store
         self.journal = journal
         self.verification_policy = verification_policy or VerificationPolicy()
@@ -56,8 +57,8 @@ class AgentEngine:
         return self.planner.plan(state.goal)
 
     def execute(self):
-        if self.dispatcher is None:
-            raise ValueError("cannot execute without a tool dispatcher")
+        if self.executor is None:
+            raise ValueError("cannot execute without an executor")
 
         state = self.state_store.load()
 
@@ -85,9 +86,7 @@ class AgentEngine:
             task_id=state.task_id,
         )
 
-        return self.dispatcher.dispatch(
-            planning_result.tool_calls[0]
-        )
+        return self.executor.execute(planning_result)
 
 
     def assess(self, result):
