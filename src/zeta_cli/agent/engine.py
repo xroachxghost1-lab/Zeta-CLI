@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from zeta_cli.agent.assessor import Assessor
 from zeta_cli.agent.executor import Executor
 from zeta_cli.agent.planner import Planner
 from zeta_cli.events import EventJournal
@@ -19,10 +20,12 @@ class AgentEngine:
         state_store: StateStore,
         journal: EventJournal,
         executor: Executor | None = None,
+        assessor: Assessor | None = None,
         verification_policy: VerificationPolicy | None = None,
     ) -> None:
         self.planner = planner
         self.executor = executor
+        self.assessor = assessor or Assessor()
         self.state_store = state_store
         self.journal = journal
         self.verification_policy = verification_policy or VerificationPolicy()
@@ -103,6 +106,8 @@ class AgentEngine:
         if state.goal is None:
             raise ValueError("cannot assess a task without a goal")
 
+        assessment = self.assessor.assess(result)
+
         transition_and_persist(
             state,
             "ASSESS",
@@ -111,7 +116,7 @@ class AgentEngine:
             task_id=state.task_id,
         )
 
-        return self.planner.plan(state.goal)
+        return assessment
 
     def verify(self, result):
         state = self.state_store.load()

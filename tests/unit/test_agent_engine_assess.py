@@ -31,10 +31,6 @@ def make_engine(tmp_path, planner, executor):
 
 def test_engine_assess_successful_result(tmp_path):
     planner = MagicMock()
-    planner.plan.return_value = CompletionResult(
-        content="The requested work is complete.",
-    )
-
     executor = MagicMock()
 
     engine, state_store, journal = make_engine(
@@ -47,11 +43,11 @@ def test_engine_assess_successful_result(tmp_path):
         ToolResult.from_value("README contents")
     )
 
-    assert result.content == "The requested work is complete."
+    assert result.passed is True
+    assert result.value == "README contents"
+    assert result.error is None
 
-    planner.plan.assert_called_once_with(
-        "Read README.md",
-    )
+    planner.plan.assert_not_called()
 
     state = state_store.load()
     assert state.phase == "ASSESS"
@@ -120,3 +116,36 @@ def test_engine_assess_requires_task_goal(tmp_path):
         engine.assess(
             ToolResult.from_value("README contents")
         )
+
+
+def test_engine_assess_uses_assessor(tmp_path):
+    planner = MagicMock()
+    executor = MagicMock()
+    assessor = MagicMock()
+    assessor.assess.return_value = "assessed"
+
+    state_store = StateStore(tmp_path / "state.json")
+    journal = EventJournal(tmp_path / "events.jsonl")
+
+    state_store.save(
+        AgentState(
+            task_id="task-1",
+            goal="Read README.md",
+            phase="EXECUTE",
+        )
+    )
+
+    engine = AgentEngine(
+        planner=planner,
+        executor=executor,
+        assessor=assessor,
+        state_store=state_store,
+        journal=journal,
+    )
+
+    result = ToolResult.from_value("README contents")
+
+    assessed = engine.assess(result)
+
+    assessor.assess.assert_called_once_with(result)
+    assert assessed == "assessed"

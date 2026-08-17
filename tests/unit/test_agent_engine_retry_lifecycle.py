@@ -63,7 +63,9 @@ def test_retry_lifecycle_returns_to_plan_and_can_complete(tmp_path):
 
     assess_result = engine.assess(execute_result)
 
-    assert assess_result.content == "assessment"
+    assert assess_result.passed is True
+    assert assess_result.value == "README contents"
+    assert assess_result.error is None
 
     verify_result = engine.verify(
         ToolResult.from_value("verification evidence")
