@@ -13,6 +13,7 @@ class AgentLoop:
 
         self.engine = engine
         self.max_steps = max_steps
+        self.last_result = None
 
     def run(self, *, task_id: str, goal: str):
         result = self.engine.start(task_id=task_id, goal=goal)
@@ -21,6 +22,7 @@ class AgentLoop:
             state = self.engine.state_store.load()
 
             if state.phase in TERMINAL_PHASES:
+                self.last_result = self.engine.final_result or result
                 return state
 
             if state.phase == "BOOT":

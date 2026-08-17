@@ -45,6 +45,7 @@ class AgentEngine:
         self.journal = journal
         self.verification_policy = verification_policy or VerificationPolicy()
         self.tool_schemas = tool_schemas
+        self.final_result = None
         self.watchdog = watchdog or WatchdogCoordinator(
             recorder=WatchdogEventRecorder(journal),
             budget=RecoveryBudget(max_attempts=3),
@@ -368,6 +369,12 @@ class AgentEngine:
             self.state_store.save(state)
 
             return self.state_store.load()
+
+        final_result = self.planner.finalize(
+            state.goal,
+            str(result.value),
+        )
+        self.final_result = final_result
 
         transition_and_persist(
             state,

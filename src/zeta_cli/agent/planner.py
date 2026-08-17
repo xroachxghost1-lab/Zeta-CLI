@@ -43,3 +43,30 @@ class Planner:
             reasoning_effort=self.settings.reasoning_effort,
             tools=tools,
         )
+
+    def finalize(self, goal: str, evidence: str) -> CompletionResult:
+        messages = [
+            Message(
+                role="system",
+                content=(
+                    "You are the final response component of Zeta-CLI. "
+                    "Answer the user's original request using only the "
+                    "verified evidence provided. Be concise and directly "
+                    "answer the user. Do not mention internal lifecycle "
+                    "phases, tools, watchdogs, or implementation details."
+                ),
+            ),
+            Message(
+                role="user",
+                content=(
+                    f"Original request:\n{goal}\n\n"
+                    f"Verified evidence:\n{evidence}"
+                ),
+            ),
+        ]
+
+        return self.api.complete(
+            messages,
+            model=self.settings.model,
+            reasoning_effort=self.settings.reasoning_effort,
+        )

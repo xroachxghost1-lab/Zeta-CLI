@@ -99,6 +99,12 @@ def run_task(settings: Settings, goal: str) -> int:
         goal=goal,
     )
 
+    result = loop.last_result
+    if result is not None:
+        value = getattr(result, "value", None)
+        if value is not None:
+            print(value)
+
     print(
         f"task={state.task_id} "
         f"phase={state.phase} "
@@ -106,6 +112,12 @@ def run_task(settings: Settings, goal: str) -> int:
         f"completed={state.completed} "
         f"failed={state.failed}"
     )
+
+    final_result = loop.last_result
+    if final_result is not None:
+        content = getattr(final_result, "content", None)
+        if content:
+            print(content)
 
     return 0 if state.completed else 1
 
