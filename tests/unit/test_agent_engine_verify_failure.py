@@ -94,3 +94,33 @@ def test_engine_verify_failed_policy_preserves_reason(tmp_path):
     assert result.phase == "RECOVER"
     assert result.failed is True
     assert result.completed is False
+
+
+def test_engine_verify_failure_preserves_goal_progress(tmp_path):
+    policy = MagicMock()
+    policy.evaluate.return_value = VerificationResult(
+        passed=False,
+        reason="verification evidence failed",
+    )
+
+    engine, state_store, journal, planner = make_engine(
+        tmp_path,
+        policy,
+    )
+
+    state = state_store.load()
+    state.progress = 75
+    state_store.save(state)
+
+    result = engine.verify(
+        ToolResult.from_exception(
+            RuntimeError("verification failed")
+        )
+    )
+
+    assert result.phase == "RECOVER"
+    assert result.failed is True
+    assert result.progress == 75
+
+    persisted = state_store.load()
+    assert persisted.progress == 75

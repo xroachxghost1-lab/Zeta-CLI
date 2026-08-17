@@ -206,3 +206,49 @@ def test_engine_execute_updates_goal_progress(tmp_path):
     state = state_store.load()
     assert state.phase == "EXECUTE"
     assert state.progress == 30
+
+
+def test_engine_execute_failure_preserves_goal_progress(tmp_path):
+    tool_call = ToolCall(
+        id="call-1",
+        name="read_file",
+        arguments={"path": "README.md"},
+    )
+
+    planner = MagicMock()
+    planner.plan.return_value = CompletionResult(
+        content="",
+        tool_calls=[tool_call],
+    )
+
+    executor = MagicMock()
+    executor.execute.return_value = ToolResult.from_exception(
+        RuntimeError("read failed")
+    )
+
+    state_store = StateStore(tmp_path / "state.json")
+    journal = EventJournal(tmp_path / "events.jsonl")
+
+    state_store.save(
+        AgentState(
+            task_id="task-1",
+            goal="Read README.md",
+            phase="PLAN",
+            progress=10,
+        )
+    )
+
+    engine = AgentEngine(
+        planner=planner,
+        executor=executor,
+        state_store=state_store,
+        journal=journal,
+    )
+
+    result = engine.execute()
+
+    assert result.ok is False
+
+    state = state_store.load()
+    assert state.phase == "EXECUTE"
+    assert state.progress == 30
