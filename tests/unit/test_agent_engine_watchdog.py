@@ -167,3 +167,44 @@ def test_engine_observe_watchdog_returns_decision(tmp_path):
     assert observation.progressed is True
     assert observation.healthy is True
     assert action.value == "CONTINUE"
+
+
+def test_engine_observe_watchdog_returns_replan_for_repeated_progress(tmp_path):
+    state_store = StateStore(tmp_path / "state.json")
+    journal = EventJournal(tmp_path / "events.jsonl")
+
+    from zeta_cli.watchdog.coordinator import WatchdogCoordinator
+    from zeta_cli.watchdog.events import WatchdogEventRecorder
+    from zeta_cli.watchdog.supervisor import Watchdog
+
+    watchdog = WatchdogCoordinator(
+        recorder=WatchdogEventRecorder(journal),
+        watchdog=Watchdog(stall_threshold=10, repeat_threshold=3),
+    )
+
+    engine = AgentEngine(
+        planner=MagicMock(),
+        executor=MagicMock(),
+        state_store=state_store,
+        journal=journal,
+        watchdog=watchdog,
+    )
+
+    state = AgentState(
+        task_id="task-1",
+        goal="Build the agent",
+        phase="EXECUTE",
+        progress=30,
+    )
+
+    decisions = [
+        engine._observe_watchdog(state, state),
+        engine._observe_watchdog(state, state),
+        engine._observe_watchdog(state, state),
+        engine._observe_watchdog(state, state),
+    ]
+
+    assert decisions[-1][1].value == "REPLAN"
+    assert decisions[-1][0].repeated is True
+    assert decisions[-1][0].stalled is False
+    assert decisions[-1][0].healthy is False
