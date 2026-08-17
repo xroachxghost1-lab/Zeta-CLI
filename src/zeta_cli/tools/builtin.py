@@ -64,19 +64,24 @@ def build_builtin_tools(workspace: Workspace) -> dict[str, Any]:
 def builtin_schemas() -> list[dict[str, Any]]:
     return [
         {
-            "name": "read_file",
-            "description": "Read a UTF-8 file inside the workspace.",
-            "parameters": {
+            "type": "function",
+            "function": {
+                "name": "read_file",
+                "description": "Read a UTF-8 file inside the workspace.",
+                "parameters": {
                 "type": "object",
                 "properties": {
                     "path": {"type": "string"},
                 },
                 "required": ["path"],
                 "additionalProperties": False,
+                },
             },
         },
         {
-            "name": "write_file",
+            "type": "function",
+            "function": {
+                "name": "write_file",
             "description": "Create or replace a UTF-8 file inside the workspace.",
             "parameters": {
                 "type": "object",
@@ -86,10 +91,13 @@ def builtin_schemas() -> list[dict[str, Any]]:
                 },
                 "required": ["path", "content"],
                 "additionalProperties": False,
+                },
             },
         },
         {
-            "name": "run_command",
+            "type": "function",
+            "function": {
+                "name": "run_command",
             "description": "Run a development command inside the workspace.",
             "parameters": {
                 "type": "object",
@@ -99,6 +107,7 @@ def builtin_schemas() -> list[dict[str, Any]]:
                 },
                 "required": ["command"],
                 "additionalProperties": False,
+                },
             },
         },
     ]
