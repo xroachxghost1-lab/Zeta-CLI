@@ -8,6 +8,7 @@ from zeta_cli.api.retry import RetryPolicy
 
 from zeta_cli.api.models import ToolCall
 from zeta_cli.errors import ToolError
+from zeta_cli.tools.history import ToolHistory
 from zeta_cli.tools.results import ToolResult
 from zeta_cli.tools.safety import ToolSafety
 
@@ -22,12 +23,14 @@ class ToolDispatcher:
         timeout: float | None = None,
         retry_policy: RetryPolicy | None = None,
         sleep=default_sleep,
+        history: ToolHistory | None = None,
     ) -> None:
         self.registry = registry
         self.safety = safety
         self.timeout = timeout
         self.retry_policy = retry_policy
         self.sleep = sleep
+        self.history = history
 
         if timeout is not None and timeout <= 0:
             raise ValueError("timeout must be greater than zero")
@@ -57,9 +60,12 @@ class ToolDispatcher:
         while True:
             try:
                 if self.timeout is None:
-                    return ToolResult.from_value(
+                    result = ToolResult.from_value(
                         tool(call.arguments)
                     )
+                    if self.history is not None:
+                        self.history.record(call, result)
+                    return result
 
                 with ThreadPoolExecutor(max_workers=1) as executor:
                     future = executor.submit(
@@ -68,9 +74,12 @@ class ToolDispatcher:
                     )
 
                     try:
-                        return ToolResult.from_value(
+                        result = ToolResult.from_value(
                             future.result(timeout=self.timeout)
                         )
+                        if self.history is not None:
+                            self.history.record(call, result)
+                        return result
                     except TimeoutError:
                         future.cancel()
                         raise TimeoutError(
@@ -83,7 +92,10 @@ class ToolDispatcher:
                     self.retry_policy is None
                     or not self.retry_policy.should_retry(attempt)
                 ):
-                    return ToolResult.from_exception(error)
+                    result = ToolResult.from_exception(error)
+                    if self.history is not None:
+                        self.history.record(call, result)
+                    return result
 
                 self.sleep(
                     self.retry_policy.delay_for(attempt)
