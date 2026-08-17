@@ -255,6 +255,8 @@ class AgentEngine:
         if state.goal is None:
             raise ValueError("cannot retry a task without a goal")
 
+        previous_progress = state.progress
+
         transition_and_persist(
             state,
             "PLAN",
@@ -263,6 +265,7 @@ class AgentEngine:
             task_id=state.task_id,
         )
 
+        state.progress = previous_progress
         state.attempt += 1
         state.failed = False
         state.completed = False

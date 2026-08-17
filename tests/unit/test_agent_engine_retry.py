@@ -104,3 +104,23 @@ def test_engine_retry_requires_task_id(tmp_path):
 
     assert state_store.load().phase == "RECOVER"
     assert journal.read() == []
+
+
+def test_engine_retry_preserves_goal_progress(tmp_path):
+    engine, state_store, journal, planner = make_engine(
+        tmp_path,
+        attempt=2,
+    )
+
+    state = state_store.load()
+    state.progress = 75
+    state_store.save(state)
+
+    result = engine.retry()
+
+    assert result.phase == "PLAN"
+    assert result.attempt == 3
+    assert result.progress == 75
+
+    persisted = state_store.load()
+    assert persisted.progress == 75
