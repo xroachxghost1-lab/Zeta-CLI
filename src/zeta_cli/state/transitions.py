@@ -43,6 +43,17 @@ def transition(state: AgentState, target: str) -> AgentState:
 
     state.phase = target
 
+    progress_by_phase = {
+        "PLAN": 10,
+        "EXECUTE": 30,
+        "ASSESS": 50,
+        "VERIFY": 75,
+        "COMPLETE": 100,
+    }
+
+    if target in progress_by_phase:
+        state.progress = progress_by_phase[target]
+
     if target == "COMPLETE":
         state.completed = True
         state.failed = False

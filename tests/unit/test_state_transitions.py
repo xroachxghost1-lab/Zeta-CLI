@@ -220,3 +220,59 @@ def test_invalid_transition_does_not_mutate_state():
     assert state.phase == "PLAN"
     assert state.completed is False
     assert state.failed is False
+
+
+@pytest.mark.parametrize(
+    ("current", "target", "progress"),
+    [
+        ("BOOT", "PLAN", 10),
+        ("PLAN", "EXECUTE", 30),
+        ("EXECUTE", "ASSESS", 50),
+        ("ASSESS", "VERIFY", 75),
+        ("VERIFY", "COMPLETE", 100),
+    ],
+)
+def test_lifecycle_transitions_update_goal_progress(
+    current,
+    target,
+    progress,
+):
+    state = AgentState(
+        task_id="task-1",
+        goal="Read README.md",
+        phase=current,
+    )
+
+    transition(state, target)
+
+    assert state.phase == target
+    assert state.progress == progress
+
+
+def test_recover_does_not_reset_goal_progress():
+    state = AgentState(
+        task_id="task-1",
+        goal="Read README.md",
+        phase="EXECUTE",
+        progress=30,
+    )
+
+    transition(state, "RECOVER")
+
+    assert state.phase == "RECOVER"
+    assert state.progress == 30
+
+
+@pytest.mark.parametrize("target", ["FAILED", "STOPPED"])
+def test_failure_or_stop_does_not_change_goal_progress(target):
+    state = AgentState(
+        task_id="task-1",
+        goal="Read README.md",
+        phase="EXECUTE",
+        progress=30,
+    )
+
+    transition(state, target)
+
+    assert state.phase == target
+    assert state.progress == 30
