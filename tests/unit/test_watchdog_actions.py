@@ -87,3 +87,93 @@ def test_repeated_watchdog_signals_with_stall_stop(field):
     watchdog_observation = WatchdogObservation(**observation_kwargs)
 
     assert choose_action(watchdog_observation) is WatchdogAction.STOP
+
+
+def test_no_workspace_progress_triggers_recover():
+    watchdog_observation = WatchdogObservation(
+        progressed=True,
+        stalled=False,
+        repeated=False,
+        no_workspace_progress=True,
+        healthy=False,
+    )
+
+    assert choose_action(watchdog_observation) is WatchdogAction.RECOVER
+
+
+def test_no_workspace_progress_consumes_recovery_budget():
+    budget = RecoveryBudget(max_attempts=2)
+
+    watchdog_observation = WatchdogObservation(
+        progressed=True,
+        stalled=False,
+        repeated=False,
+        no_workspace_progress=True,
+        healthy=False,
+    )
+
+    assert choose_action(
+        watchdog_observation,
+        budget=budget,
+    ) is WatchdogAction.RECOVER
+
+    assert budget.attempts == 1
+
+
+def test_exhausted_workspace_recovery_budget_stops():
+    budget = RecoveryBudget(max_attempts=1)
+
+    watchdog_observation = WatchdogObservation(
+        progressed=True,
+        stalled=False,
+        repeated=False,
+        no_workspace_progress=True,
+        healthy=False,
+    )
+
+    assert choose_action(
+        watchdog_observation,
+        budget=budget,
+    ) is WatchdogAction.RECOVER
+
+    assert choose_action(
+        watchdog_observation,
+        budget=budget,
+    ) is WatchdogAction.STOP
+
+    assert budget.attempts == 1
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "repeated_call",
+        "repeated_result",
+        "repeated_reasoning",
+    ],
+)
+def test_workspace_stall_with_repeated_signal_stops(field):
+    observation_kwargs = {
+        "progressed": True,
+        "stalled": False,
+        "repeated": False,
+        "no_workspace_progress": True,
+        "healthy": False,
+    }
+    observation_kwargs[field] = True
+
+    watchdog_observation = WatchdogObservation(**observation_kwargs)
+
+    assert choose_action(watchdog_observation) is WatchdogAction.STOP
+
+
+def test_workspace_stall_with_generic_repetition_stops():
+    watchdog_observation = WatchdogObservation(
+        progressed=True,
+        stalled=False,
+        repeated=True,
+        no_workspace_progress=True,
+        healthy=False,
+    )
+
+    assert choose_action(watchdog_observation) is WatchdogAction.STOP

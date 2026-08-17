@@ -26,15 +26,17 @@ def choose_action(
         or observation.repeated_reasoning
     )
 
-    if repeated_signal and observation.stalled:
+    if repeated_signal and (
+        observation.stalled or observation.no_workspace_progress
+    ):
         return WatchdogAction.STOP
-
-    if observation.stalled:
-        if budget is not None and not budget.consume():
-            return WatchdogAction.STOP
-        return WatchdogAction.RECOVER
 
     if repeated_signal:
         return WatchdogAction.REPLAN
+
+    if observation.stalled or observation.no_workspace_progress:
+        if budget is not None and not budget.consume():
+            return WatchdogAction.STOP
+        return WatchdogAction.RECOVER
 
     return WatchdogAction.CONTINUE
