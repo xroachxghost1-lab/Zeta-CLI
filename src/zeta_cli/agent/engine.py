@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from zeta_cli.agent.assessor import Assessor
+from zeta_cli.agent.decision import Decision, DecisionEngine
 from zeta_cli.agent.executor import Executor
 from zeta_cli.agent.planner import Planner
 from zeta_cli.events import EventJournal
@@ -21,11 +22,13 @@ class AgentEngine:
         journal: EventJournal,
         executor: Executor | None = None,
         assessor: Assessor | None = None,
+        decision_engine: DecisionEngine | None = None,
         verification_policy: VerificationPolicy | None = None,
     ) -> None:
         self.planner = planner
         self.executor = executor
         self.assessor = assessor or Assessor()
+        self.decision_engine = decision_engine or DecisionEngine()
         self.state_store = state_store
         self.journal = journal
         self.verification_policy = verification_policy or VerificationPolicy()
@@ -147,8 +150,9 @@ class AgentEngine:
         )
 
         verification = self.verification_policy.evaluate([evidence])
+        decision = self.decision_engine.decide(verification)
 
-        if not verification.passed:
+        if decision == Decision.RECOVER:
             transition_and_persist(
                 state,
                 "RECOVER",

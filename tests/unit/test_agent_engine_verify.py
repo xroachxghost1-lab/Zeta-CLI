@@ -2,6 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from zeta_cli.agent.decision import Decision
 from zeta_cli.agent.engine import AgentEngine
 from zeta_cli.api.models import CompletionResult
 from zeta_cli.events import EventJournal
@@ -121,3 +122,39 @@ def test_engine_verify_requires_task_goal(tmp_path):
         )
 
     planner.plan.assert_not_called()
+
+
+def test_engine_verify_uses_decision_engine(tmp_path):
+    planner = MagicMock()
+    executor = MagicMock()
+    decision_engine = MagicMock()
+
+    decision_engine.decide.return_value = Decision.COMPLETE
+
+    state_store = StateStore(tmp_path / "state.json")
+    journal = EventJournal(tmp_path / "events.jsonl")
+
+    state_store.save(
+        AgentState(
+            task_id="task-1",
+            goal="Read README.md",
+            phase="ASSESS",
+        )
+    )
+
+    engine = AgentEngine(
+        planner=planner,
+        executor=executor,
+        state_store=state_store,
+        journal=journal,
+        decision_engine=decision_engine,
+    )
+
+    result = ToolResult.from_value("README contents")
+
+    verified = engine.verify(result)
+
+    decision_engine.decide.assert_called_once()
+    assert verified.phase == "COMPLETE"
+    assert verified.completed is True
+    assert verified.failed is False
