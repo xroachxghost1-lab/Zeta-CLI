@@ -142,7 +142,7 @@ class AgentEngine:
 
         return self.planner.plan(state.goal)
 
-    def execute(self):
+    def execute(self, planning_result=None):
         if self.executor is None:
             raise ValueError("cannot execute without an executor")
 
@@ -159,7 +159,8 @@ class AgentEngine:
                 f"cannot execute from phase {state.phase!r}"
             )
 
-        planning_result = self.planner.plan(state.goal)
+        if planning_result is None:
+            planning_result = self.planner.plan(state.goal)
 
         if not planning_result.tool_calls:
             raise ValueError("no tool call in planning result")

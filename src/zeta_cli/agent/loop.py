@@ -15,9 +15,7 @@ class AgentLoop:
         self.max_steps = max_steps
 
     def run(self, *, task_id: str, goal: str):
-        self.engine.start(task_id=task_id, goal=goal)
-
-        result = None
+        result = self.engine.start(task_id=task_id, goal=goal)
 
         for _ in range(self.max_steps):
             state = self.engine.state_store.load()
@@ -25,33 +23,43 @@ class AgentLoop:
             if state.phase in TERMINAL_PHASES:
                 return state
 
-            if state.phase == "PLAN":
-                result = self.engine.execute()
+            if state.phase == "BOOT":
+                raise RuntimeError("agent remained in BOOT after start()")
 
-            elif state.phase == "EXECUTE":
+            if state.phase == "PLAN":
+                result = self.engine.execute(result)
+                continue
+
+            if state.phase == "EXECUTE":
                 if result is None:
                     raise RuntimeError(
                         "agent entered EXECUTE without a tool result"
                     )
                 result = self.engine.assess(result)
+                continue
 
-            elif state.phase == "ASSESS":
+            if state.phase == "ASSESS":
                 if result is None:
                     raise RuntimeError(
                         "agent entered ASSESS without an assessment result"
                     )
                 result = self.engine.verify(result)
+                continue
 
-            elif state.phase == "VERIFY":
+            if state.phase == "VERIFY":
+                # verify() normally transitions directly to COMPLETE or
+                # RECOVER. If a future policy leaves VERIFY pending,
+                # complete() is the explicit fallback.
                 result = self.engine.complete()
+                continue
 
-            elif state.phase == "RECOVER":
+            if state.phase == "RECOVER":
                 result = self.engine.retry()
+                continue
 
-            else:
-                raise RuntimeError(
-                    f"unsupported agent phase: {state.phase!r}"
-                )
+            raise RuntimeError(
+                f"unsupported agent phase: {state.phase!r}"
+            )
 
         raise RuntimeError(
             f"agent exceeded maximum step count: {self.max_steps}"
