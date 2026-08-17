@@ -517,3 +517,53 @@ def test_engine_stop_persists_stopped_state(tmp_path):
 
     with pytest.raises(ValueError, match="cannot execute from phase"):
         engine.execute()
+
+
+def test_engine_real_watchdog_replans_on_repeated_progress(tmp_path):
+    first_plan = CompletionResult(
+        content="initial plan",
+        tool_calls=[
+            ToolCall(
+                id="call-1",
+                name="read_file",
+                arguments={"path": "README.md"},
+            )
+        ],
+    )
+    replanned_plan = CompletionResult(
+        content="replanned plan",
+        tool_calls=[
+            ToolCall(
+                id="call-2",
+                name="read_file",
+                arguments={"path": "pyproject.toml"},
+            )
+        ],
+    )
+
+    planner = MagicMock()
+    planner.plan.side_effect = [first_plan, replanned_plan]
+
+    executor = MagicMock()
+    executor.execute.return_value = ToolResult.from_value("contents")
+
+    engine, state_store, journal = make_engine(
+        tmp_path,
+        planner,
+        executor,
+    )
+
+    watchdog = MagicMock()
+    watchdog.observe.return_value = (
+        MagicMock(),
+        WatchdogAction.REPLAN,
+    )
+    engine.watchdog = watchdog
+
+    result = engine.execute()
+
+    assert result.ok is True
+    assert result.value == "contents"
+    assert planner.plan.call_count == 2
+    executor.execute.assert_called_once_with(replanned_plan)
+    assert state_store.load().phase == "EXECUTE"
