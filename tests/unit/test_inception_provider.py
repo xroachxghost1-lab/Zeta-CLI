@@ -16,7 +16,9 @@ from zeta_cli.api.errors import (
 )
 
 
-def test_provider_requires_api_key():
+def test_provider_requires_api_key(monkeypatch):
+    monkeypatch.delenv("INCEPTION_API_KEY", raising=False)
+
     with pytest.raises(APIError):
         InceptionProvider(Settings(api_key=None))
 
