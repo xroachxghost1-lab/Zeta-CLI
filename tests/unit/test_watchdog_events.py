@@ -39,6 +39,7 @@ def test_recorder_persists_watchdog_decision(tmp_path):
         "healthy": False,
         "progressed": False,
         "repeated": False,
+        "repeated_call": False,
         "stalled": True,
     }
 

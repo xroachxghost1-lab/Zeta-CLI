@@ -60,3 +60,51 @@ def test_watchdog_reset_clears_detector_state():
     assert result.stalled is False
     assert result.repeated is False
     assert result.healthy is True
+
+
+def test_watchdog_detects_repeated_tool_calls():
+    watchdog = Watchdog(call_threshold=2)
+
+    progress = ProgressRecord(files_changed=1)
+
+    first = watchdog.observe(
+        ProgressRecord(),
+        progress,
+        tool_call_fingerprint="abc",
+    )
+    second = watchdog.observe(
+        progress,
+        progress,
+        tool_call_fingerprint="abc",
+    )
+
+    assert first.repeated_call is False
+    assert second.repeated_call is True
+    assert second.healthy is False
+
+
+def test_watchdog_reset_clears_call_detector():
+    watchdog = Watchdog(call_threshold=2)
+
+    progress = ProgressRecord(files_changed=1)
+
+    watchdog.observe(
+        ProgressRecord(),
+        progress,
+        tool_call_fingerprint="abc",
+    )
+    watchdog.observe(
+        progress,
+        progress,
+        tool_call_fingerprint="abc",
+    )
+
+    watchdog.reset()
+
+    result = watchdog.observe(
+        progress,
+        progress,
+        tool_call_fingerprint="abc",
+    )
+
+    assert result.repeated_call is False

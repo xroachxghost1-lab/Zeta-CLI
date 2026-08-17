@@ -27,8 +27,13 @@ class WatchdogCoordinator:
         task_id: str,
         previous: ProgressRecord,
         current: ProgressRecord,
+        tool_call_fingerprint: str | None = None,
     ) -> tuple[WatchdogObservation, WatchdogAction]:
-        observation = self.watchdog.observe(previous, current)
+        observation = self.watchdog.observe(
+            previous,
+            current,
+            tool_call_fingerprint=tool_call_fingerprint,
+        )
         action = choose_action(observation, budget=self.budget)
 
         self.recorder.record(

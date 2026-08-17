@@ -14,6 +14,7 @@ from zeta_cli.watchdog.budget import RecoveryBudget
 from zeta_cli.watchdog.coordinator import WatchdogCoordinator
 from zeta_cli.watchdog.events import WatchdogEventRecorder
 from zeta_cli.watchdog.snapshot import progress_record_from_state
+from zeta_cli.tools.fingerprinting import tool_fingerprint
 
 
 class AgentEngine:
@@ -43,7 +44,13 @@ class AgentEngine:
             budget=RecoveryBudget(max_attempts=3),
         )
 
-    def _observe_watchdog(self, previous_state: AgentState, current_state: AgentState):
+    def _observe_watchdog(
+        self,
+        previous_state: AgentState,
+        current_state: AgentState,
+        *,
+        tool_call_fingerprint: str | None = None,
+    ):
         if current_state.task_id is None:
             return
 
@@ -51,6 +58,7 @@ class AgentEngine:
             task_id=current_state.task_id,
             previous=progress_record_from_state(previous_state),
             current=progress_record_from_state(current_state),
+            tool_call_fingerprint=tool_call_fingerprint,
         )
 
     def start(self, *, task_id: str, goal: str):
@@ -141,7 +149,17 @@ class AgentEngine:
             journal=self.journal,
             task_id=state.task_id,
         )
-        _, watchdog_action = self._observe_watchdog(previous_state, state)
+        planned_call = planning_result.tool_calls[0]
+        call_fingerprint = tool_fingerprint(
+            planned_call.name,
+            planned_call.arguments,
+        )
+
+        _, watchdog_action = self._observe_watchdog(
+            previous_state,
+            state,
+            tool_call_fingerprint=call_fingerprint,
+        )
 
         if watchdog_action is WatchdogAction.RECOVER:
             transition_and_persist(

@@ -27,6 +27,7 @@ class WatchdogEventRecorder:
                     "progressed": observation.progressed,
                     "stalled": observation.stalled,
                     "repeated": observation.repeated,
+                    "repeated_call": observation.repeated_call,
                     "healthy": observation.healthy,
                 },
             )
