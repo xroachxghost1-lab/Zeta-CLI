@@ -1,5 +1,7 @@
 import pytest
 
+from zeta_cli.constants import ALL_PHASES
+
 from zeta_cli.state import AgentState, StateStore
 from zeta_cli.state.transitions import (
     InvalidTransitionError,
@@ -108,3 +110,113 @@ def test_transition_can_persist_state(tmp_path):
     restored = store.load()
 
     assert restored.phase == "PLAN"
+
+
+@pytest.mark.parametrize(
+    ("current", "target"),
+    [
+        ("BOOT", "PLAN"),
+        ("BOOT", "FAILED"),
+        ("BOOT", "STOPPED"),
+        ("PLAN", "EXECUTE"),
+        ("PLAN", "FAILED"),
+        ("PLAN", "STOPPED"),
+        ("EXECUTE", "ASSESS"),
+        ("EXECUTE", "RECOVER"),
+        ("EXECUTE", "FAILED"),
+        ("EXECUTE", "STOPPED"),
+        ("ASSESS", "VERIFY"),
+        ("ASSESS", "RECOVER"),
+        ("ASSESS", "FAILED"),
+        ("ASSESS", "STOPPED"),
+        ("VERIFY", "COMPLETE"),
+        ("VERIFY", "RECOVER"),
+        ("VERIFY", "FAILED"),
+        ("VERIFY", "STOPPED"),
+        ("RECOVER", "PLAN"),
+        ("RECOVER", "EXECUTE"),
+        ("RECOVER", "FAILED"),
+        ("RECOVER", "STOPPED"),
+    ],
+)
+def test_all_allowed_transitions_are_accepted(current, target):
+    state = AgentState(
+        task_id="task-1",
+        goal="Read README.md",
+        phase=current,
+    )
+
+    transition(state, target)
+
+    assert state.phase == target
+
+
+@pytest.mark.parametrize(
+    ("current", "target"),
+    [
+        ("BOOT", "EXECUTE"),
+        ("BOOT", "ASSESS"),
+        ("PLAN", "ASSESS"),
+        ("PLAN", "VERIFY"),
+        ("EXECUTE", "PLAN"),
+        ("EXECUTE", "VERIFY"),
+        ("ASSESS", "PLAN"),
+        ("ASSESS", "EXECUTE"),
+        ("VERIFY", "PLAN"),
+        ("VERIFY", "EXECUTE"),
+        ("VERIFY", "ASSESS"),
+        ("RECOVER", "ASSESS"),
+        ("RECOVER", "VERIFY"),
+        ("COMPLETE", "PLAN"),
+        ("FAILED", "PLAN"),
+        ("STOPPED", "PLAN"),
+    ],
+)
+def test_invalid_phase_transitions_are_rejected(current, target):
+    state = AgentState(
+        task_id="task-1",
+        goal="Read README.md",
+        phase=current,
+    )
+
+    with pytest.raises(InvalidTransitionError):
+        transition(state, target)
+
+
+def test_unknown_target_phase_is_rejected():
+    state = AgentState(
+        task_id="task-1",
+        goal="Read README.md",
+        phase="PLAN",
+    )
+
+    with pytest.raises(InvalidTransitionError, match="unknown target phase"):
+        transition(state, "NOT_A_PHASE")
+
+
+@pytest.mark.parametrize("phase", ["COMPLETE", "FAILED", "STOPPED"])
+def test_terminal_phase_cannot_transition_to_any_phase(phase):
+    state = AgentState(
+        task_id="task-1",
+        goal="Read README.md",
+        phase=phase,
+    )
+
+    for target in ALL_PHASES:
+        with pytest.raises(InvalidTransitionError):
+            transition(state, target)
+
+
+def test_invalid_transition_does_not_mutate_state():
+    state = AgentState(
+        task_id="task-1",
+        goal="Read README.md",
+        phase="PLAN",
+    )
+
+    with pytest.raises(InvalidTransitionError):
+        transition(state, "VERIFY")
+
+    assert state.phase == "PLAN"
+    assert state.completed is False
+    assert state.failed is False
