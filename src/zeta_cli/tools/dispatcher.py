@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from threading import Event
+from time import sleep as default_sleep
+
+from zeta_cli.api.retry import RetryPolicy
 
 from zeta_cli.api.models import ToolCall
 from zeta_cli.errors import ToolError
@@ -17,10 +20,14 @@ class ToolDispatcher:
         registry,
         safety: ToolSafety | None = None,
         timeout: float | None = None,
+        retry_policy: RetryPolicy | None = None,
+        sleep=default_sleep,
     ) -> None:
         self.registry = registry
         self.safety = safety
         self.timeout = timeout
+        self.retry_policy = retry_policy
+        self.sleep = sleep
 
         if timeout is not None and timeout <= 0:
             raise ValueError("timeout must be greater than zero")
@@ -45,24 +52,40 @@ class ToolDispatcher:
                 error=f"tool {call.name!r} was cancelled before execution",
             )
 
-        if self.timeout is None:
-            try:
-                return ToolResult.from_value(tool(call.arguments))
-            except Exception as error:
-                return ToolResult.from_exception(error)
+        attempt = 0
 
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(tool, call.arguments)
-
+        while True:
             try:
-                return ToolResult.from_value(
-                    future.result(timeout=self.timeout)
-                )
-            except TimeoutError:
-                future.cancel()
-                return ToolResult(
-                    ok=False,
-                    error=f"tool {call.name!r} timed out after {self.timeout}s",
-                )
+                if self.timeout is None:
+                    return ToolResult.from_value(
+                        tool(call.arguments)
+                    )
+
+                with ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(
+                        tool,
+                        call.arguments,
+                    )
+
+                    try:
+                        return ToolResult.from_value(
+                            future.result(timeout=self.timeout)
+                        )
+                    except TimeoutError:
+                        future.cancel()
+                        raise TimeoutError(
+                            f"tool {call.name!r} timed out "
+                            f"after {self.timeout}s"
+                        )
+
             except Exception as error:
-                return ToolResult.from_exception(error)
+                if (
+                    self.retry_policy is None
+                    or not self.retry_policy.should_retry(attempt)
+                ):
+                    return ToolResult.from_exception(error)
+
+                self.sleep(
+                    self.retry_policy.delay_for(attempt)
+                )
+                attempt += 1
