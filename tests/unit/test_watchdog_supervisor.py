@@ -186,7 +186,7 @@ def test_watchdog_detects_repeated_reasoning():
 
 
 def test_watchdog_changed_reasoning_breaks_repetition():
-    watchdog = Watchdog(call_threshold=3)
+    watchdog = Watchdog(call_threshold=3, workspace_threshold=100)
 
     previous = ProgressRecord()
     current = ProgressRecord(tool_result_changed=True)
@@ -206,4 +206,50 @@ def test_watchdog_changed_reasoning_breaks_repetition():
     )
 
     assert observation.repeated_reasoning is False
+    assert observation.healthy is True
+
+
+def test_watchdog_detects_no_workspace_progress():
+    watchdog = Watchdog(workspace_threshold=3)
+
+    previous = ProgressRecord()
+    current = ProgressRecord()
+
+    assert watchdog.observe(previous, current).no_workspace_progress is False
+    assert watchdog.observe(previous, current).no_workspace_progress is False
+
+    observation = watchdog.observe(previous, current)
+
+    assert observation.no_workspace_progress is True
+    assert observation.healthy is False
+
+
+def test_watchdog_workspace_change_breaks_no_progress():
+    watchdog = Watchdog(workspace_threshold=3)
+
+    previous = ProgressRecord()
+    current = ProgressRecord(files_changed=1)
+
+    watchdog.observe(previous, previous)
+    watchdog.observe(previous, previous)
+
+    observation = watchdog.observe(previous, current)
+
+    assert observation.no_workspace_progress is False
+    assert observation.healthy is True
+
+
+def test_watchdog_reset_clears_workspace_progress_detector():
+    watchdog = Watchdog(workspace_threshold=2)
+
+    progress = ProgressRecord()
+
+    watchdog.observe(progress, progress)
+    watchdog.observe(progress, progress)
+
+    watchdog.reset()
+
+    observation = watchdog.observe(progress, progress)
+
+    assert observation.no_workspace_progress is False
     assert observation.healthy is True

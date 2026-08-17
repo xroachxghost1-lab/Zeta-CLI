@@ -136,3 +136,50 @@ def test_coordinator_budget_exhaustion_produces_stop(tmp_path):
         "RECOVER",
         "STOP",
     ]
+
+
+def test_coordinator_passes_reasoning_and_result_fingerprints():
+    from unittest.mock import Mock
+
+    from zeta_cli.watchdog.coordinator import WatchdogCoordinator
+    from zeta_cli.watchdog.progress import ProgressRecord
+
+    watchdog = Mock()
+    from zeta_cli.watchdog.supervisor import WatchdogObservation
+
+    watchdog.observe.return_value = WatchdogObservation(
+        progressed=True,
+        stalled=False,
+        repeated=False,
+        repeated_call=False,
+        repeated_result=False,
+        repeated_reasoning=False,
+        no_workspace_progress=False,
+        healthy=True,
+    )
+
+    recorder = Mock()
+    coordinator = WatchdogCoordinator(
+        watchdog=watchdog,
+        recorder=recorder,
+    )
+
+    previous = ProgressRecord()
+    current = ProgressRecord()
+
+    coordinator.observe(
+        task_id="task-1",
+        previous=previous,
+        current=current,
+        tool_call_fingerprint="call-1",
+        tool_result_fingerprint="result-1",
+        reasoning_fingerprint="reason-1",
+    )
+
+    watchdog.observe.assert_called_once_with(
+        previous,
+        current,
+        tool_call_fingerprint="call-1",
+        tool_result_fingerprint="result-1",
+        reasoning_fingerprint="reason-1",
+    )
