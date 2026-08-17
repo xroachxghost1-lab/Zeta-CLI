@@ -123,6 +123,16 @@ class AgentEngine:
         if not planning_result.tool_calls:
             raise ValueError("no tool call in planning result")
 
+        previous_state = AgentState(
+            task_id=state.task_id,
+            goal=state.goal,
+            phase=state.phase,
+            attempt=state.attempt,
+            progress=state.progress,
+            completed=state.completed,
+            failed=state.failed,
+        )
+
         transition_and_persist(
             state,
             "EXECUTE",
@@ -130,6 +140,7 @@ class AgentEngine:
             journal=self.journal,
             task_id=state.task_id,
         )
+        self._observe_watchdog(previous_state, state)
 
         return self.executor.execute(planning_result)
 
@@ -150,6 +161,16 @@ class AgentEngine:
 
         assessment = self.assessor.assess(result)
 
+        previous_state = AgentState(
+            task_id=state.task_id,
+            goal=state.goal,
+            phase=state.phase,
+            attempt=state.attempt,
+            progress=state.progress,
+            completed=state.completed,
+            failed=state.failed,
+        )
+
         transition_and_persist(
             state,
             "ASSESS",
@@ -157,6 +178,7 @@ class AgentEngine:
             journal=self.journal,
             task_id=state.task_id,
         )
+        self._observe_watchdog(previous_state, state)
 
         return assessment
 
@@ -174,6 +196,16 @@ class AgentEngine:
         if state.goal is None:
             raise ValueError("cannot verify a task without a goal")
 
+        previous_state = AgentState(
+            task_id=state.task_id,
+            goal=state.goal,
+            phase=state.phase,
+            attempt=state.attempt,
+            progress=state.progress,
+            completed=state.completed,
+            failed=state.failed,
+        )
+
         transition_and_persist(
             state,
             "VERIFY",
@@ -181,6 +213,7 @@ class AgentEngine:
             journal=self.journal,
             task_id=state.task_id,
         )
+        self._observe_watchdog(previous_state, state)
 
         evidence = VerificationEvidence(
             source="agent",
@@ -256,6 +289,16 @@ class AgentEngine:
         if state.task_id is None:
             raise ValueError("cannot recover a task without a task_id")
 
+        previous_state = AgentState(
+            task_id=state.task_id,
+            goal=state.goal,
+            phase=state.phase,
+            attempt=state.attempt,
+            progress=state.progress,
+            completed=state.completed,
+            failed=state.failed,
+        )
+
         transition_and_persist(
             state,
             "RECOVER",
@@ -263,6 +306,7 @@ class AgentEngine:
             journal=self.journal,
             task_id=state.task_id,
         )
+        self._observe_watchdog(previous_state, state)
 
         state.failed = True
         state.completed = False
@@ -285,6 +329,15 @@ class AgentEngine:
         if state.goal is None:
             raise ValueError("cannot retry a task without a goal")
 
+        previous_state = AgentState(
+            task_id=state.task_id,
+            goal=state.goal,
+            phase=state.phase,
+            attempt=state.attempt,
+            progress=state.progress,
+            completed=state.completed,
+            failed=state.failed,
+        )
         previous_progress = state.progress
 
         transition_and_persist(
@@ -294,6 +347,7 @@ class AgentEngine:
             journal=self.journal,
             task_id=state.task_id,
         )
+        self._observe_watchdog(previous_state, state)
 
         state.progress = previous_progress
         state.attempt += 1

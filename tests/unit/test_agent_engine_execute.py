@@ -62,7 +62,11 @@ def test_engine_executes_planner_tool_call(tmp_path):
     state = state_store.load()
     assert state.phase == "EXECUTE"
 
-    events = journal.read()
+    events = [
+        event
+        for event in journal.read()
+        if event.event_type == "PHASE_CHANGED"
+    ]
     assert len(events) == 1
     assert events[0].event_type == "PHASE_CHANGED"
     assert events[0].data == {

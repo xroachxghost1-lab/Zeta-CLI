@@ -56,7 +56,10 @@ def test_engine_retry_returns_to_plan(tmp_path):
 
     planner.plan.assert_not_called()
 
-    events = journal.read()
+    events = [
+        event for event in journal.read()
+        if event.event_type == "PHASE_CHANGED"
+    ]
     assert [event.data for event in events] == [
         {
             "from": "RECOVER",

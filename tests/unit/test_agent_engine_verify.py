@@ -57,7 +57,11 @@ def test_engine_verify_successful_assessment(tmp_path):
     state = state_store.load()
     assert state.phase == "COMPLETE"
 
-    events = journal.read()
+    events = [
+        event
+        for event in journal.read()
+        if event.event_type == "PHASE_CHANGED"
+    ]
     assert [event.data for event in events] == [
         {"from": "ASSESS", "to": "VERIFY"},
         {"from": "VERIFY", "to": "COMPLETE"},

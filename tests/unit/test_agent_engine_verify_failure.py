@@ -62,7 +62,11 @@ def test_engine_verify_failed_policy_routes_to_recover(tmp_path):
 
     planner.plan.assert_not_called()
 
-    events = journal.read()
+    events = [
+        event
+        for event in journal.read()
+        if event.event_type == "PHASE_CHANGED"
+    ]
     assert [event.data for event in events] == [
         {
             "from": "ASSESS",

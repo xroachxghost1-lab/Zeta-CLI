@@ -47,7 +47,10 @@ def test_engine_complete_transitions_verify_to_complete(tmp_path):
     assert result.completed is True
     assert result.failed is False
 
-    events = journal.read()
+    events = [
+        event for event in journal.read()
+        if event.event_type == "PHASE_CHANGED"
+    ]
     assert len(events) == 1
     assert events[0].data == {
         "from": "VERIFY",
@@ -79,7 +82,10 @@ def test_engine_recover_transitions_verify_to_recover(tmp_path):
     assert result is state_store.load()
     assert result.phase == "RECOVER"
 
-    events = journal.read()
+    events = [
+        event for event in journal.read()
+        if event.event_type == "PHASE_CHANGED"
+    ]
     assert len(events) == 1
     assert events[0].data == {
         "from": "VERIFY",

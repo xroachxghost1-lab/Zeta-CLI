@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 from zeta_cli.agent.engine import AgentEngine
 from zeta_cli.api.models import CompletionResult
 from zeta_cli.events import EventJournal
-from zeta_cli.state import StateStore
+from zeta_cli.state import AgentState, StateStore
 
 
 def test_engine_start_records_watchdog_decision(tmp_path):
@@ -66,3 +66,73 @@ def test_engine_accepts_custom_watchdog(tmp_path):
     )
 
     watchdog.observe.assert_called_once()
+
+
+def test_engine_recover_records_watchdog_decision(tmp_path):
+    state_store = StateStore(tmp_path / "state.json")
+    journal = EventJournal(tmp_path / "events.jsonl")
+
+
+    state_store.save(
+        AgentState(
+            task_id="task-1",
+            goal="Build the agent",
+            phase="VERIFY",
+        )
+    )
+
+    engine = AgentEngine(
+        planner=MagicMock(),
+        executor=MagicMock(),
+        state_store=state_store,
+        journal=journal,
+    )
+
+    engine.recover()
+
+    watchdog_events = [
+        event
+        for event in journal.read()
+        if event.event_type == "WATCHDOG_DECISION"
+    ]
+
+    assert len(watchdog_events) == 1
+    assert watchdog_events[0].data["action"] == "CONTINUE"
+    assert watchdog_events[0].data["progressed"] is True
+    assert watchdog_events[0].data["healthy"] is True
+
+
+def test_engine_retry_records_watchdog_decision(tmp_path):
+    state_store = StateStore(tmp_path / "state.json")
+    journal = EventJournal(tmp_path / "events.jsonl")
+
+
+    state_store.save(
+        AgentState(
+            task_id="task-1",
+            goal="Build the agent",
+            phase="RECOVER",
+            attempt=1,
+            failed=True,
+        )
+    )
+
+    engine = AgentEngine(
+        planner=MagicMock(),
+        executor=MagicMock(),
+        state_store=state_store,
+        journal=journal,
+    )
+
+    engine.retry()
+
+    watchdog_events = [
+        event
+        for event in journal.read()
+        if event.event_type == "WATCHDOG_DECISION"
+    ]
+
+    assert len(watchdog_events) == 1
+    assert watchdog_events[0].data["action"] == "CONTINUE"
+    assert watchdog_events[0].data["progressed"] is True
+    assert watchdog_events[0].data["healthy"] is True

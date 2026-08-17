@@ -52,7 +52,11 @@ def test_engine_verify_then_complete(tmp_path):
     assert persisted.completed is True
     assert persisted.failed is False
 
-    events = journal.read()
+    events = [
+        event
+        for event in journal.read()
+        if event.event_type == "PHASE_CHANGED"
+    ]
     assert [event.data for event in events] == [
         {
             "from": "ASSESS",

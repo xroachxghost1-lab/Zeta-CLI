@@ -52,7 +52,11 @@ def test_engine_assess_successful_result(tmp_path):
     state = state_store.load()
     assert state.phase == "ASSESS"
 
-    events = journal.read()
+    events = [
+        event
+        for event in journal.read()
+        if event.event_type == "PHASE_CHANGED"
+    ]
     assert len(events) == 1
     assert events[0].data == {
         "from": "EXECUTE",
