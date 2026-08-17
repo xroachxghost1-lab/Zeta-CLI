@@ -1,5 +1,7 @@
 from unittest.mock import MagicMock
 
+import pytest
+
 from zeta_cli.agent.engine import AgentEngine
 from zeta_cli.api.models import CompletionResult
 from zeta_cli.events import EventJournal
@@ -85,3 +87,64 @@ def test_engine_can_resume_persisted_task(tmp_path):
     planner.plan.assert_called_once_with(
         "Continue the implementation",
     )
+
+
+def test_engine_start_rejects_empty_task_id(tmp_path):
+    planner = MagicMock()
+    state_store = StateStore(tmp_path / "state.json")
+    journal = EventJournal(tmp_path / "events.jsonl")
+
+    engine = AgentEngine(
+        planner=planner,
+        state_store=state_store,
+        journal=journal,
+    )
+
+    with pytest.raises(ValueError, match="task_id"):
+        engine.start(task_id="", goal="Build the agent")
+
+    assert state_store.load().phase == "BOOT"
+    planner.plan.assert_not_called()
+
+
+def test_engine_start_rejects_empty_goal(tmp_path):
+    planner = MagicMock()
+    state_store = StateStore(tmp_path / "state.json")
+    journal = EventJournal(tmp_path / "events.jsonl")
+
+    engine = AgentEngine(
+        planner=planner,
+        state_store=state_store,
+        journal=journal,
+    )
+
+    with pytest.raises(ValueError, match="goal"):
+        engine.start(task_id="task-1", goal="")
+
+    assert state_store.load().phase == "BOOT"
+    planner.plan.assert_not_called()
+
+
+def test_engine_start_strips_task_id_and_goal(tmp_path):
+    planner = MagicMock()
+    state_store = StateStore(tmp_path / "state.json")
+    journal = EventJournal(tmp_path / "events.jsonl")
+
+    engine = AgentEngine(
+        planner=planner,
+        state_store=state_store,
+        journal=journal,
+    )
+
+    planner.plan.return_value = MagicMock()
+
+    engine.start(
+        task_id="  task-1  ",
+        goal="  Build the agent  ",
+    )
+
+    state = state_store.load()
+
+    assert state.task_id == "task-1"
+    assert state.goal == "Build the agent"
+    planner.plan.assert_called_once_with("Build the agent")

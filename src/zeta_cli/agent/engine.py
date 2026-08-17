@@ -34,6 +34,15 @@ class AgentEngine:
         self.verification_policy = verification_policy or VerificationPolicy()
 
     def start(self, *, task_id: str, goal: str):
+        task_id = task_id.strip()
+        goal = goal.strip()
+
+        if not task_id:
+            raise ValueError("task_id cannot be empty")
+
+        if not goal:
+            raise ValueError("goal cannot be empty")
+
         state = AgentState(
             task_id=task_id,
             goal=goal,
