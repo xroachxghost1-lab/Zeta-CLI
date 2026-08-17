@@ -466,3 +466,54 @@ def test_engine_stalled_watchdog_exhausts_budget_and_stops(tmp_path):
     executor.execute.assert_not_called()
 
     watchdog.observe.assert_called()
+
+
+def test_engine_stop_persists_stopped_state(tmp_path):
+    from zeta_cli.watchdog.actions import WatchdogAction
+
+    planner = MagicMock()
+    planner.plan.return_value = CompletionResult(
+        tool_calls=[
+            ToolCall(
+                id="call-1",
+                name="read_file",
+                arguments={"path": "README.md"},
+            )
+        ]
+    )
+    executor = MagicMock()
+
+    engine, state_store, journal = make_engine(
+        tmp_path,
+        planner,
+        executor,
+    )
+
+    watchdog = MagicMock()
+    watchdog.observe.return_value = (
+        MagicMock(),
+        WatchdogAction.STOP,
+    )
+    engine.watchdog = watchdog
+
+    result = engine.execute()
+
+    assert result is None
+    assert state_store.load().phase == "STOPPED"
+    assert state_store.load().completed is False
+    assert state_store.load().failed is False
+    executor.execute.assert_not_called()
+
+    phase_events = [
+        event
+        for event in journal.read()
+        if event.event_type == "PHASE_CHANGED"
+    ]
+
+    assert [event.data for event in phase_events] == [
+        {"from": "PLAN", "to": "EXECUTE"},
+        {"from": "EXECUTE", "to": "STOPPED"},
+    ]
+
+    with pytest.raises(ValueError, match="cannot execute from phase"):
+        engine.execute()
