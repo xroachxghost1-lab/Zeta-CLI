@@ -422,3 +422,47 @@ def test_engine_stops_when_watchdog_requests_stop(tmp_path):
         "from": "EXECUTE",
         "to": "STOPPED",
     }
+
+
+def test_engine_stalled_watchdog_exhausts_budget_and_stops(tmp_path):
+    tool_call = ToolCall(
+        id="call-1",
+        name="read_file",
+        arguments={"path": "README.md"},
+    )
+
+    planner = MagicMock()
+    planner.plan.return_value = CompletionResult(tool_calls=[tool_call])
+
+    executor = MagicMock()
+    executor.execute.return_value = ToolResult.from_value("contents")
+
+    engine, state_store, journal = make_engine(
+        tmp_path,
+        planner,
+        executor,
+    )
+
+    watchdog = MagicMock()
+    watchdog.observe.side_effect = [
+        (MagicMock(), WatchdogAction.RECOVER),
+        (MagicMock(), WatchdogAction.STOP),
+    ]
+    engine.watchdog = watchdog
+
+    first = engine.execute()
+    assert first is None
+    assert state_store.load().phase == "RECOVER"
+    executor.execute.assert_not_called()
+
+    # Put the task back into PLAN for the second watchdog decision.
+    state = state_store.load()
+    state.phase = "PLAN"
+    state_store.save(state)
+
+    second = engine.execute()
+    assert second is None
+    assert state_store.load().phase == "STOPPED"
+    executor.execute.assert_not_called()
+
+    watchdog.observe.assert_called()

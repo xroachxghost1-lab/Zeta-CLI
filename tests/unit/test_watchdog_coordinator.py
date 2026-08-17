@@ -99,3 +99,40 @@ def test_coordinator_reset_clears_watchdog_state(tmp_path):
 
     assert observation.stalled is False
     assert action is WatchdogAction.CONTINUE
+
+
+def test_coordinator_budget_exhaustion_produces_stop(tmp_path):
+    coordinator, journal = make_coordinator(
+        tmp_path,
+        stall_threshold=1,
+        max_attempts=1,
+    )
+
+    progress = ProgressRecord()
+
+    _, first_action = coordinator.observe(
+        task_id="task-budget",
+        previous=progress,
+        current=progress,
+    )
+
+    _, second_action = coordinator.observe(
+        task_id="task-budget",
+        previous=progress,
+        current=progress,
+    )
+
+    assert first_action is WatchdogAction.RECOVER
+    assert second_action is WatchdogAction.STOP
+    assert coordinator.budget.attempts == 1
+
+    decisions = [
+        event
+        for event in journal.read()
+        if event.event_type == "WATCHDOG_DECISION"
+    ]
+
+    assert [event.data["action"] for event in decisions] == [
+        "RECOVER",
+        "STOP",
+    ]
