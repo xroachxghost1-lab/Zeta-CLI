@@ -143,3 +143,77 @@ def test_state_store_loads_legacy_state_without_progress(tmp_path: Path):
     assert restored.phase == "PLAN"
     assert restored.attempt == 2
     assert restored.progress == 0
+
+
+def test_new_state_has_schema_version():
+    from zeta_cli.state.migrations import CURRENT_SCHEMA_VERSION
+
+    state = AgentState()
+
+    assert state.schema_version == CURRENT_SCHEMA_VERSION
+
+
+def test_state_store_persists_schema_version(tmp_path: Path):
+    store = StateStore(tmp_path / "state.json")
+
+    store.save(AgentState(task_id="task-1"))
+
+    data = __import__("json").loads(
+        (tmp_path / "state.json").read_text(encoding="utf-8")
+    )
+
+    assert data["schema_version"] == 1
+
+
+def test_state_store_migrates_legacy_state(tmp_path: Path):
+    path = tmp_path / "legacy.json"
+    path.write_text(
+        """{
+  "attempt": 2,
+  "completed": false,
+  "failed": false,
+  "goal": "Build the agent",
+  "phase": "PLAN",
+  "task_id": "task-123"
+}
+""",
+        encoding="utf-8",
+    )
+
+    state = StateStore(path).load()
+
+    assert state.schema_version == 1
+    assert state.progress == 0
+
+
+def test_state_store_rejects_corrupt_json(tmp_path: Path):
+    from zeta_cli.state import StateCorruptionError
+
+    path = tmp_path / "state.json"
+    path.write_text("{not valid json", encoding="utf-8")
+
+    store = StateStore(path)
+
+    with __import__("pytest").raises(
+        StateCorruptionError,
+        match="invalid JSON",
+    ):
+        store.load()
+
+
+def test_state_store_rejects_future_schema(tmp_path: Path):
+    from zeta_cli.state import StateCorruptionError
+
+    path = tmp_path / "state.json"
+    path.write_text(
+        '{"schema_version": 999, "phase": "BOOT"}',
+        encoding="utf-8",
+    )
+
+    store = StateStore(path)
+
+    with __import__("pytest").raises(
+        StateCorruptionError,
+        match="unsupported state schema version",
+    ):
+        store.load()
