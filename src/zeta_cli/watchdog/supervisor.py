@@ -16,6 +16,7 @@ class WatchdogObservation:
     stalled: bool
     repeated: bool
     repeated_call: bool = False
+    repeated_result: bool = False
     healthy: bool = True
 
 
@@ -32,6 +33,7 @@ class Watchdog:
         self.stall_detector = StallDetector(threshold=stall_threshold)
         self.repeat_detector = RepeatDetector(threshold=repeat_threshold)
         self.call_detector = CallHistoryDetector(threshold=call_threshold)
+        self.result_detector = CallHistoryDetector(threshold=call_threshold)
 
     def observe(
         self,
@@ -39,22 +41,31 @@ class Watchdog:
         current_progress: ProgressRecord,
         *,
         tool_call_fingerprint: str | None = None,
+        tool_result_fingerprint: str | None = None,
     ) -> WatchdogObservation:
         progressed = progress_changed(previous_progress, current_progress)
 
         stalled = self.stall_detector.observe(progressed)
         repeated = self.repeat_detector.observe(current_progress)
         repeated_call = self.call_detector.observe(tool_call_fingerprint)
+        repeated_result = self.result_detector.observe(tool_result_fingerprint)
 
         return WatchdogObservation(
             progressed=progressed,
             stalled=stalled,
             repeated=repeated,
             repeated_call=repeated_call,
-            healthy=not stalled and not repeated and not repeated_call,
+            repeated_result=repeated_result,
+            healthy=(
+                not stalled
+                and not repeated
+                and not repeated_call
+                and not repeated_result
+            ),
         )
 
     def reset(self) -> None:
         self.stall_detector.reset()
         self.repeat_detector.reset()
         self.call_detector.reset()
+        self.result_detector.reset()

@@ -108,3 +108,54 @@ def test_watchdog_reset_clears_call_detector():
     )
 
     assert result.repeated_call is False
+
+
+def test_watchdog_detects_repeated_tool_results():
+    watchdog = Watchdog(call_threshold=3)
+
+    previous = ProgressRecord()
+    current = ProgressRecord()
+
+    assert watchdog.observe(
+        previous,
+        current,
+        tool_result_fingerprint="result-a",
+    ).repeated_result is False
+
+    assert watchdog.observe(
+        previous,
+        current,
+        tool_result_fingerprint="result-a",
+    ).repeated_result is False
+
+    observation = watchdog.observe(
+        previous,
+        current,
+        tool_result_fingerprint="result-a",
+    )
+
+    assert observation.repeated_result is True
+    assert observation.healthy is False
+
+
+def test_watchdog_changed_tool_result_breaks_repetition():
+    watchdog = Watchdog(call_threshold=3)
+
+    previous = ProgressRecord()
+    current = ProgressRecord()
+
+    for fingerprint in ("result-a", "result-a"):
+        observation = watchdog.observe(
+            previous,
+            current,
+            tool_result_fingerprint=fingerprint,
+        )
+        assert observation.repeated_result is False
+
+    observation = watchdog.observe(
+        previous,
+        current,
+        tool_result_fingerprint="result-b",
+    )
+
+    assert observation.repeated_result is False
