@@ -74,3 +74,46 @@ def test_state_store_creates_parent_directory(tmp_path: Path):
     store.save(AgentState(task_id="abc"))
 
     assert path.exists()
+
+
+def test_initial_state_has_zero_goal_progress():
+    state = AgentState()
+
+    assert state.progress == 0
+
+
+def test_state_can_track_goal_progress():
+    state = AgentState(
+        task_id="task-001",
+        goal="Build the agent",
+        progress=50,
+    )
+
+    assert state.progress == 50
+
+
+def test_state_rejects_invalid_goal_progress():
+    import pytest
+
+    with pytest.raises(ValueError, match="progress"):
+        AgentState(progress=-1)
+
+    with pytest.raises(ValueError, match="progress"):
+        AgentState(progress=101)
+
+
+def test_state_store_persists_goal_progress(tmp_path: Path):
+    store = StateStore(tmp_path / "state.json")
+
+    state = AgentState(
+        task_id="task-123",
+        goal="Implement persistence",
+        phase="EXECUTE",
+        progress=75,
+    )
+
+    store.save(state)
+
+    restored = store.load()
+
+    assert restored.progress == 75

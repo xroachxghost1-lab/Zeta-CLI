@@ -15,6 +15,7 @@ class AgentState:
     goal: str | None = None
     phase: str = "BOOT"
     attempt: int = 0
+    progress: int = 0
     completed: bool = False
     failed: bool = False
 
@@ -27,6 +28,9 @@ class AgentState:
 
         if self.attempt < 0:
             raise ValueError("attempt cannot be negative")
+
+        if self.progress < 0 or self.progress > 100:
+            raise ValueError("progress must be between 0 and 100")
 
 
 class StateStore:
