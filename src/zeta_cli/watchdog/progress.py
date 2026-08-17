@@ -36,3 +36,11 @@ class ProgressRecord:
                 self.objective_distance != 0,
             )
         )
+
+
+def progress_changed(
+    previous: ProgressRecord,
+    current: ProgressRecord,
+) -> bool:
+    """Return whether the current iteration differs from the previous one."""
+    return previous != current

@@ -1,6 +1,6 @@
 import pytest
 
-from zeta_cli.watchdog.progress import ProgressRecord
+from zeta_cli.watchdog.progress import ProgressRecord, progress_changed
 
 
 def test_progress_record_defaults_to_no_progress():
@@ -58,3 +58,17 @@ def test_progress_record_is_immutable():
 
     with pytest.raises(AttributeError):
         progress.files_changed = 2
+
+
+def test_progress_changed_detects_identical_records():
+    previous = ProgressRecord(files_changed=1, tests_passed=2)
+    current = ProgressRecord(files_changed=1, tests_passed=2)
+
+    assert progress_changed(previous, current) is False
+
+
+def test_progress_changed_detects_new_progress():
+    previous = ProgressRecord(files_changed=1)
+    current = ProgressRecord(files_changed=2)
+
+    assert progress_changed(previous, current) is True
