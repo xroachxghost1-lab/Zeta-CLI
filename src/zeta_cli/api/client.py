@@ -55,12 +55,14 @@ class APIClient:
         model: str | None = None,
         reasoning_effort: str | None = None,
         tools: list[dict[str, Any]] | None = None,
+        diffusing: bool = False,
     ):
         return self.provider.stream(
             messages,
             model=model or self.settings.model,
             reasoning_effort=reasoning_effort,
             tools=tools,
+            diffusing=diffusing,
         )
 
     def fim(

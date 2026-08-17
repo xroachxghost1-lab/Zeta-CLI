@@ -560,6 +560,7 @@ def test_stream_yields_text_deltas_and_finish_reason():
         ],
         model="mercury-2",
         stream=True,
+            diffusing=False,
     )
 
 
@@ -685,3 +686,25 @@ def test_stream_preserves_tool_call_deltas():
     assert events[0].tool_calls[0].arguments == '{"path":'
 
     assert events[1].tool_calls[0].arguments == '"test.py"}'
+
+
+def test_stream_forwards_diffusing():
+    provider = InceptionProvider(Settings(api_key="test-key"))
+
+    provider.client.chat.completions.create = MagicMock(
+        return_value=iter([])
+    )
+
+    list(
+        provider.stream(
+            [Message(role="user", content="hello")],
+            model="mercury-2",
+            diffusing=True,
+        )
+    )
+
+    kwargs = provider.client.chat.completions.create.call_args.kwargs
+
+    assert kwargs["model"] == "mercury-2"
+    assert kwargs["stream"] is True
+    assert kwargs["diffusing"] is True

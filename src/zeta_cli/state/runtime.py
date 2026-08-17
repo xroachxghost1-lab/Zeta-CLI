@@ -34,6 +34,7 @@ class StateStore:
 
     def __init__(self, path: Path) -> None:
         self.path = Path(path)
+        self._state: AgentState | None = None
 
     def save(self, state: AgentState) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -53,13 +54,19 @@ class StateStore:
         )
 
         temporary.replace(self.path)
+        self._state = state
 
     def load(self) -> AgentState:
+        if self._state is not None:
+            return self._state
+
         if not self.path.exists():
-            return AgentState()
+            self._state = AgentState()
+            return self._state
 
         data = json.loads(
             self.path.read_text(encoding="utf-8")
         )
 
-        return AgentState(**data)
+        self._state = AgentState(**data)
+        return self._state

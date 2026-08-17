@@ -148,6 +148,7 @@ def test_stream_delegates_to_provider():
         model="mercury-2",
         reasoning_effort="high",
         tools=[{"type": "function"}],
+            diffusing=False,
     )
 
     client.provider.stream.assert_called_once_with(
@@ -155,6 +156,7 @@ def test_stream_delegates_to_provider():
         model="mercury-2",
         reasoning_effort="high",
         tools=[{"type": "function"}],
+            diffusing=False,
     )
 
     assert result is expected

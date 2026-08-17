@@ -104,6 +104,7 @@ class InceptionProvider:
         model: str | None = None,
         reasoning_effort: str | None = None,
         tools: list[dict[str, Any]] | None = None,
+        diffusing: bool = False,
     ) -> Iterator[StreamEvent]:
         """Stream chat completion events from the Inception API."""
 
@@ -119,6 +120,7 @@ class InceptionProvider:
             "messages": payload,
             "model": model or self.settings.model,
             "stream": True,
+            "diffusing": diffusing,
         }
 
         if reasoning_effort is not None:
