@@ -158,3 +158,25 @@ def test_engine_verify_uses_decision_engine(tmp_path):
     assert verified.phase == "COMPLETE"
     assert verified.completed is True
     assert verified.failed is False
+
+
+def test_engine_verify_sets_goal_progress_to_100(tmp_path):
+    planner = MagicMock()
+    executor = MagicMock()
+
+    engine, state_store, journal = make_engine(
+        tmp_path,
+        planner,
+        executor,
+    )
+
+    result = engine.verify(
+        ToolResult.from_value("Verification evidence")
+    )
+
+    assert result.phase == "COMPLETE"
+    assert result.completed is True
+
+    state = state_store.load()
+    assert state.phase == "COMPLETE"
+    assert state.progress == 100

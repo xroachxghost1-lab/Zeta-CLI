@@ -162,3 +162,47 @@ def test_engine_rejects_execute_without_planned_tool(tmp_path):
     assert state.phase == "PLAN"
 
     executor.execute.assert_not_called()
+
+
+def test_engine_execute_updates_goal_progress(tmp_path):
+    planner = MagicMock()
+    executor = MagicMock()
+    executor.execute.return_value = ToolResult.from_value("README contents")
+
+    state_store = StateStore(tmp_path / "state.json")
+    journal = EventJournal(tmp_path / "events.jsonl")
+
+    state_store.save(
+        AgentState(
+            task_id="task-1",
+            goal="Read README.md",
+            phase="PLAN",
+            progress=10,
+        )
+    )
+
+    planner.plan.return_value = CompletionResult(
+        content="read README",
+        tool_calls=[
+            ToolCall(
+                id="call-1",
+                name="read_file",
+                arguments={"path": "README.md"},
+            )
+        ],
+    )
+
+    engine = AgentEngine(
+        planner=planner,
+        executor=executor,
+        state_store=state_store,
+        journal=journal,
+    )
+
+    result = engine.execute()
+
+    assert result.ok is True
+
+    state = state_store.load()
+    assert state.phase == "EXECUTE"
+    assert state.progress == 30

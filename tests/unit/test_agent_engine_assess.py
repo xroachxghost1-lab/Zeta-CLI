@@ -149,3 +149,24 @@ def test_engine_assess_uses_assessor(tmp_path):
 
     assessor.assess.assert_called_once_with(result)
     assert assessed == "assessed"
+
+
+def test_engine_assess_updates_goal_progress(tmp_path):
+    planner = MagicMock()
+    executor = MagicMock()
+
+    engine, state_store, journal = make_engine(
+        tmp_path,
+        planner,
+        executor,
+    )
+
+    result = engine.assess(
+        ToolResult.from_value("README contents")
+    )
+
+    assert result.passed is True
+
+    state = state_store.load()
+    assert state.phase == "ASSESS"
+    assert state.progress == 50
