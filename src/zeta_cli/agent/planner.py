@@ -44,6 +44,43 @@ class Planner:
             tools=tools,
         )
 
+    def continue_task(
+        self,
+        goal: str,
+        evidence: str,
+        *,
+        tools: list[dict[str, Any]] | None = None,
+    ) -> CompletionResult:
+        messages = [
+            Message(
+                role="system",
+                content=(
+                    "You are the autonomous coding component of Zeta-CLI. "
+                    "Continue working on the user's goal. Inspect the "
+                    "evidence from previous actions, determine what remains "
+                    "to be done, and use tools to make actual progress. "
+                    "Do not claim completion unless the goal has been "
+                    "verified. If more work is required, emit the necessary "
+                    "tool calls."
+                ),
+            ),
+            Message(
+                role="user",
+                content=(
+                    f"Original goal:\n{goal}\n\n"
+                    f"Previous execution evidence:\n{evidence}\n\n"
+                    "Continue the task."
+                ),
+            ),
+        ]
+
+        return self.api.complete(
+            messages,
+            model=self.settings.model,
+            reasoning_effort=self.settings.reasoning_effort,
+            tools=tools,
+        )
+
     def finalize(self, goal: str, evidence: str) -> CompletionResult:
         messages = [
             Message(
