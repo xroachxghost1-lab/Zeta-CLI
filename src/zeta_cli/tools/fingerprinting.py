@@ -41,3 +41,14 @@ def tool_result_fingerprint(result: "ToolResult") -> str:
     ).encode("utf-8")
 
     return hashlib.sha256(encoded).hexdigest()
+
+def reasoning_fingerprint(reasoning: str) -> str:
+    """Return a stable fingerprint for normalized reasoning text."""
+    if not isinstance(reasoning, str):
+        raise TypeError("reasoning_fingerprint expects a string")
+
+    normalized = " ".join(reasoning.split())
+
+    return hashlib.sha256(
+        normalized.encode("utf-8")
+    ).hexdigest()
