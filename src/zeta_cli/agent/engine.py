@@ -35,6 +35,7 @@ class AgentEngine:
         decision_engine: DecisionEngine | None = None,
         verification_policy: VerificationPolicy | None = None,
         watchdog: WatchdogCoordinator | None = None,
+        tool_schemas: list[dict] | None = None,
     ) -> None:
         self.planner = planner
         self.executor = executor
@@ -43,6 +44,7 @@ class AgentEngine:
         self.state_store = state_store
         self.journal = journal
         self.verification_policy = verification_policy or VerificationPolicy()
+        self.tool_schemas = tool_schemas
         self.watchdog = watchdog or WatchdogCoordinator(
             recorder=WatchdogEventRecorder(journal),
             budget=RecoveryBudget(max_attempts=3),
@@ -143,8 +145,6 @@ class AgentEngine:
         return self.planner.plan(state.goal)
 
     def execute(self, planning_result=None):
-        if self.executor is None:
-            raise ValueError("cannot execute without an executor")
 
         state = self.state_store.load()
 
@@ -159,12 +159,20 @@ class AgentEngine:
                 f"cannot execute from phase {state.phase!r}"
             )
 
-        if planning_result is None:
+        if self.tool_schemas is None:
             planning_result = self.planner.plan(state.goal)
+        else:
+            planning_result = self.planner.plan(
+                state.goal,
+                tools=self.tool_schemas,
+            )
 
         if not planning_result.tool_calls:
             raise ValueError("no tool call in planning result")
 
+
+        if self.executor is None:
+            raise ValueError("cannot execute without an executor")
         previous_state = AgentState(
             task_id=state.task_id,
             goal=state.goal,
@@ -228,11 +236,19 @@ class AgentEngine:
             )
             self.state_store.save(state)
 
-            planning_result = self.planner.plan(
+            replan_goal = (
                 f"{state.goal}\n"
                 f"Use strategy: {state.strategy}. "
                 "Change approach from the previous attempt."
             )
+
+            if self.tool_schemas is None:
+                planning_result = self.planner.plan(replan_goal)
+            else:
+                planning_result = self.planner.plan(
+                    replan_goal,
+                    tools=self.tool_schemas,
+                )
 
             if not planning_result.tool_calls:
                 raise ValueError("no tool call in replanned result")

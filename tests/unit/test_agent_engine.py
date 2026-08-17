@@ -215,3 +215,52 @@ def test_engine_resume_preserves_mid_lifecycle_progress(tmp_path):
     assert state.task_id == "task-1"
     assert state.goal == "Build the agent"
     planner.plan.assert_called_once_with("Build the agent")
+
+
+def test_engine_passes_tool_schemas_to_planner(tmp_path):
+    from unittest.mock import MagicMock
+
+    from zeta_cli.agent.engine import AgentEngine
+    from zeta_cli.api.models import CompletionResult
+    from zeta_cli.events import EventJournal
+    from zeta_cli.state import StateStore
+
+    planner = MagicMock()
+    planner.plan.return_value = CompletionResult(
+        tool_calls=[],
+    )
+
+    schemas = [
+        {
+            "type": "function",
+            "function": {
+                "name": "read_file",
+                "description": "Read a file",
+                "parameters": {
+                    "type": "object",
+                },
+            },
+        }
+    ]
+
+    engine = AgentEngine(
+        planner=planner,
+        state_store=StateStore(tmp_path / "state.json"),
+        journal=EventJournal(tmp_path / "events.jsonl"),
+        tool_schemas=schemas,
+    )
+
+    engine.start(
+        task_id="task-1",
+        goal="Inspect the repository",
+    )
+
+    planner.reset_mock()
+
+    try:
+        engine.execute()
+    except ValueError:
+        # The test is only interested in the planner invocation.
+        pass
+
+    assert planner.plan.call_args.kwargs["tools"] == schemas
