@@ -98,3 +98,98 @@ def test_retry_lifecycle_returns_to_plan_and_can_complete(tmp_path):
     assert persisted.attempt == 2
     assert persisted.completed is True
     assert persisted.failed is False
+
+
+def test_watchdog_recovery_can_flow_through_retry_and_execute(tmp_path):
+    from zeta_cli.watchdog.actions import WatchdogAction
+
+    initial_plan = CompletionResult(
+        content="initial plan",
+        tool_calls=[
+            ToolCall(
+                id="call-1",
+                name="read_file",
+                arguments={"path": "README.md"},
+            )
+        ],
+    )
+    retry_plan = CompletionResult(
+        content="retry plan",
+        tool_calls=[
+            ToolCall(
+                id="call-2",
+                name="read_file",
+                arguments={"path": "README.md"},
+            )
+        ],
+    )
+
+    planner = MagicMock()
+    planner.plan.side_effect = [initial_plan, retry_plan]
+
+    executor = MagicMock()
+    executor.execute.return_value = ToolResult.from_value("README contents")
+
+    state_store = StateStore(tmp_path / "state.json")
+    journal = EventJournal(tmp_path / "events.jsonl")
+
+    state_store.save(
+        AgentState(
+            task_id="task-1",
+            goal="Read README.md",
+            phase="PLAN",
+        )
+    )
+
+    engine = AgentEngine(
+        planner=planner,
+        executor=executor,
+        state_store=state_store,
+        journal=journal,
+    )
+
+    watchdog = MagicMock()
+    watchdog.observe.return_value = (
+        MagicMock(),
+        WatchdogAction.RECOVER,
+    )
+    engine.watchdog = watchdog
+
+    recovery_result = engine.execute()
+
+    assert recovery_result is None
+    assert state_store.load().phase == "RECOVER"
+    executor.execute.assert_not_called()
+
+    retry_result = engine.retry()
+
+    assert retry_result.phase == "PLAN"
+    assert retry_result.attempt == 1
+    assert retry_result.failed is False
+
+    watchdog.observe.return_value = (
+        MagicMock(),
+        WatchdogAction.CONTINUE,
+    )
+
+    execute_result = engine.execute()
+
+    assert execute_result.ok is True
+    assert execute_result.value == "README contents"
+    assert state_store.load().phase == "EXECUTE"
+
+    assert planner.plan.call_count == 2
+    executor.execute.assert_called_once_with(retry_plan)
+
+    events = [
+        event
+        for event in journal.read()
+        if event.event_type == "PHASE_CHANGED"
+    ]
+
+    assert [event.data for event in events] == [
+        {"from": "PLAN", "to": "EXECUTE"},
+        {"from": "EXECUTE", "to": "RECOVER"},
+        {"from": "RECOVER", "to": "PLAN"},
+        {"from": "PLAN", "to": "EXECUTE"},
+    ]
