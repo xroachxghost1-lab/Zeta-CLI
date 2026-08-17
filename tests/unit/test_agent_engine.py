@@ -148,3 +148,69 @@ def test_engine_start_strips_task_id_and_goal(tmp_path):
     assert state.task_id == "task-1"
     assert state.goal == "Build the agent"
     planner.plan.assert_called_once_with("Build the agent")
+
+
+def test_engine_resume_preserves_persisted_progress(tmp_path):
+    planner = MagicMock()
+    state_store = StateStore(tmp_path / "state.json")
+    journal = EventJournal(tmp_path / "events.jsonl")
+
+    state_store.save(
+        AgentState(
+            task_id="task-1",
+            goal="Build the agent",
+            phase="PLAN",
+            progress=10,
+        )
+    )
+
+    engine = AgentEngine(
+        planner=planner,
+        state_store=state_store,
+        journal=journal,
+    )
+
+    planner.plan.return_value = MagicMock()
+
+    engine.resume()
+
+    state = state_store.load()
+
+    assert state.phase == "PLAN"
+    assert state.progress == 10
+    assert state.task_id == "task-1"
+    assert state.goal == "Build the agent"
+    planner.plan.assert_called_once_with("Build the agent")
+
+
+def test_engine_resume_preserves_mid_lifecycle_progress(tmp_path):
+    planner = MagicMock()
+    state_store = StateStore(tmp_path / "state.json")
+    journal = EventJournal(tmp_path / "events.jsonl")
+
+    state_store.save(
+        AgentState(
+            task_id="task-1",
+            goal="Build the agent",
+            phase="VERIFY",
+            progress=75,
+        )
+    )
+
+    engine = AgentEngine(
+        planner=planner,
+        state_store=state_store,
+        journal=journal,
+    )
+
+    planner.plan.return_value = MagicMock()
+
+    engine.resume()
+
+    state = state_store.load()
+
+    assert state.phase == "VERIFY"
+    assert state.progress == 75
+    assert state.task_id == "task-1"
+    assert state.goal == "Build the agent"
+    planner.plan.assert_called_once_with("Build the agent")
