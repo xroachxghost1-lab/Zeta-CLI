@@ -1,6 +1,6 @@
 import pytest
 
-from zeta_cli.watchdog.progress import ProgressRecord, progress_changed
+from zeta_cli.watchdog.progress import ProgressDelta, ProgressRecord, progress_changed, progress_delta
 
 
 def test_progress_record_defaults_to_no_progress():
@@ -72,3 +72,50 @@ def test_progress_changed_detects_new_progress():
     current = ProgressRecord(files_changed=2)
 
     assert progress_changed(previous, current) is True
+
+
+def test_progress_delta_reports_numeric_changes():
+    previous = ProgressRecord(
+        files_changed=1,
+        tests_passed=2,
+        objective_distance=5,
+    )
+    current = ProgressRecord(
+        files_changed=3,
+        tests_passed=5,
+        objective_distance=2,
+    )
+
+    delta = progress_delta(previous, current)
+
+    assert delta.files_changed == 2
+    assert delta.tests_passed == 3
+    assert delta.objective_distance == -3
+    assert delta.has_progress() is True
+
+
+def test_progress_delta_reports_boolean_changes():
+    previous = ProgressRecord()
+    current = ProgressRecord(
+        task_state_changed=True,
+        verification_state_changed=True,
+    )
+
+    delta = progress_delta(previous, current)
+
+    assert delta.task_state_changed is True
+    assert delta.verification_state_changed is True
+    assert delta.has_progress() is True
+
+
+def test_progress_delta_is_zero_for_identical_records():
+    progress = ProgressRecord(
+        files_changed=2,
+        tests_passed=4,
+        strategy_changed=True,
+    )
+
+    delta = progress_delta(progress, progress)
+
+    assert delta == ProgressDelta()
+    assert delta.has_progress() is False
