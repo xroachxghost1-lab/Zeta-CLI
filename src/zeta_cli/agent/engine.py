@@ -9,6 +9,7 @@ from zeta_cli.state import AgentState, StateStore
 from zeta_cli.state.transitions import transition_and_persist
 from zeta_cli.verification.evidence import VerificationEvidence
 from zeta_cli.verification.policies import VerificationPolicy
+from zeta_cli.watchdog.actions import WatchdogAction
 from zeta_cli.watchdog.budget import RecoveryBudget
 from zeta_cli.watchdog.coordinator import WatchdogCoordinator
 from zeta_cli.watchdog.events import WatchdogEventRecorder
@@ -140,7 +141,13 @@ class AgentEngine:
             journal=self.journal,
             task_id=state.task_id,
         )
-        self._observe_watchdog(previous_state, state)
+        _, watchdog_action = self._observe_watchdog(previous_state, state)
+
+        if watchdog_action is WatchdogAction.REPLAN:
+            planning_result = self.planner.plan(state.goal)
+
+            if not planning_result.tool_calls:
+                raise ValueError("no tool call in replanned result")
 
         return self.executor.execute(planning_result)
 

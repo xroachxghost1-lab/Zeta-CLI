@@ -8,6 +8,7 @@ from zeta_cli.errors import ToolError
 from zeta_cli.events import EventJournal
 from zeta_cli.state import AgentState, StateStore
 from zeta_cli.tools.results import ToolResult
+from zeta_cli.watchdog.actions import WatchdogAction
 
 
 def make_engine(tmp_path, planner, executor):
@@ -256,3 +257,83 @@ def test_engine_execute_failure_preserves_goal_progress(tmp_path):
     state = state_store.load()
     assert state.phase == "EXECUTE"
     assert state.progress == 30
+
+
+def test_engine_replans_once_when_watchdog_requests_replan(tmp_path):
+    first_call = ToolCall(
+        id="call-1",
+        name="read_file",
+        arguments={"path": "README.md"},
+    )
+    replanned_call = ToolCall(
+        id="call-2",
+        name="read_file",
+        arguments={"path": "pyproject.toml"},
+    )
+
+    planner = MagicMock()
+    replanned_result = CompletionResult(tool_calls=[replanned_call])
+    planner.plan.side_effect = [
+        CompletionResult(tool_calls=[first_call]),
+        replanned_result,
+    ]
+
+    executor = MagicMock()
+    executor.execute.return_value = ToolResult.from_value("contents")
+
+    engine, state_store, journal = make_engine(
+        tmp_path,
+        planner,
+        executor,
+    )
+
+    watchdog = MagicMock()
+    observation = MagicMock()
+    watchdog.observe.return_value = (
+        observation,
+        WatchdogAction.REPLAN,
+    )
+    engine.watchdog = watchdog
+
+    result = engine.execute()
+
+    assert result.ok is True
+    assert planner.plan.call_count == 2
+    executor.execute.assert_called_once_with(replanned_result)
+    assert state_store.load().phase == "EXECUTE"
+
+
+def test_engine_replan_rejects_empty_planning_result(tmp_path):
+    first_call = ToolCall(
+        id="call-1",
+        name="read_file",
+        arguments={"path": "README.md"},
+    )
+
+    planner = MagicMock()
+    planner.plan.side_effect = [
+        CompletionResult(tool_calls=[first_call]),
+        CompletionResult(tool_calls=[]),
+    ]
+
+    executor = MagicMock()
+
+    engine, state_store, journal = make_engine(
+        tmp_path,
+        planner,
+        executor,
+    )
+
+    watchdog = MagicMock()
+    watchdog.observe.return_value = (
+        MagicMock(),
+        WatchdogAction.REPLAN,
+    )
+    engine.watchdog = watchdog
+
+    with pytest.raises(ValueError, match="no tool call in replanned result"):
+        engine.execute()
+
+    executor.execute.assert_not_called()
+    assert planner.plan.call_count == 2
+    assert state_store.load().phase == "EXECUTE"
