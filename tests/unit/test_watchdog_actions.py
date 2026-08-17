@@ -43,3 +43,47 @@ def test_exhausted_recovery_budget_stops():
     assert choose_action(observation(stalled=True), budget=budget) is WatchdogAction.RECOVER
     assert choose_action(observation(stalled=True), budget=budget) is WatchdogAction.STOP
     assert budget.attempts == 1
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "repeated_call",
+        "repeated_result",
+        "repeated_reasoning",
+    ],
+)
+def test_repeated_watchdog_signals_trigger_replan(field):
+    observation_kwargs = {
+        "progressed": False,
+        "stalled": False,
+        "repeated": False,
+        "healthy": False,
+    }
+    observation_kwargs[field] = True
+
+    watchdog_observation = WatchdogObservation(**observation_kwargs)
+
+    assert choose_action(watchdog_observation) is WatchdogAction.REPLAN
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "repeated_call",
+        "repeated_result",
+        "repeated_reasoning",
+    ],
+)
+def test_repeated_watchdog_signals_with_stall_stop(field):
+    observation_kwargs = {
+        "progressed": False,
+        "stalled": True,
+        "repeated": False,
+        "healthy": False,
+    }
+    observation_kwargs[field] = True
+
+    watchdog_observation = WatchdogObservation(**observation_kwargs)
+
+    assert choose_action(watchdog_observation) is WatchdogAction.STOP
