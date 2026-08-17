@@ -143,6 +143,30 @@ class AgentEngine:
         )
         _, watchdog_action = self._observe_watchdog(previous_state, state)
 
+        if watchdog_action is WatchdogAction.RECOVER:
+            transition_and_persist(
+                state,
+                "RECOVER",
+                store=self.state_store,
+                journal=self.journal,
+                task_id=state.task_id,
+            )
+            state.failed = True
+            state.completed = False
+            self.state_store.save(state)
+            return None
+
+        if watchdog_action is WatchdogAction.STOP:
+            transition_and_persist(
+                state,
+                "STOPPED",
+                store=self.state_store,
+                journal=self.journal,
+                task_id=state.task_id,
+            )
+            self.state_store.save(state)
+            return None
+
         if watchdog_action is WatchdogAction.REPLAN:
             planning_result = self.planner.plan(state.goal)
 

@@ -337,3 +337,88 @@ def test_engine_replan_rejects_empty_planning_result(tmp_path):
     executor.execute.assert_not_called()
     assert planner.plan.call_count == 2
     assert state_store.load().phase == "EXECUTE"
+
+
+def test_engine_recovers_when_watchdog_requests_recovery(tmp_path):
+    tool_call = ToolCall(
+        id="call-1",
+        name="read_file",
+        arguments={"path": "README.md"},
+    )
+
+    planner = MagicMock()
+    planner.plan.return_value = CompletionResult(tool_calls=[tool_call])
+
+    executor = MagicMock()
+    executor.execute.return_value = ToolResult.from_value("contents")
+
+    engine, state_store, journal = make_engine(
+        tmp_path,
+        planner,
+        executor,
+    )
+
+    watchdog = MagicMock()
+    watchdog.observe.return_value = (
+        MagicMock(),
+        WatchdogAction.RECOVER,
+    )
+    engine.watchdog = watchdog
+
+    result = engine.execute()
+
+    assert result is None
+    executor.execute.assert_not_called()
+    assert state_store.load().phase == "RECOVER"
+
+    events = [
+        event
+        for event in journal.read()
+        if event.event_type == "PHASE_CHANGED"
+    ]
+    assert events[-1].data == {
+        "from": "EXECUTE",
+        "to": "RECOVER",
+    }
+
+
+def test_engine_stops_when_watchdog_requests_stop(tmp_path):
+    tool_call = ToolCall(
+        id="call-1",
+        name="read_file",
+        arguments={"path": "README.md"},
+    )
+
+    planner = MagicMock()
+    planner.plan.return_value = CompletionResult(tool_calls=[tool_call])
+
+    executor = MagicMock()
+
+    engine, state_store, journal = make_engine(
+        tmp_path,
+        planner,
+        executor,
+    )
+
+    watchdog = MagicMock()
+    watchdog.observe.return_value = (
+        MagicMock(),
+        WatchdogAction.STOP,
+    )
+    engine.watchdog = watchdog
+
+    result = engine.execute()
+
+    assert result is None
+    executor.execute.assert_not_called()
+    assert state_store.load().phase == "STOPPED"
+
+    events = [
+        event
+        for event in journal.read()
+        if event.event_type == "PHASE_CHANGED"
+    ]
+    assert events[-1].data == {
+        "from": "EXECUTE",
+        "to": "STOPPED",
+    }
