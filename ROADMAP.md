@@ -71,8 +71,8 @@ Targeted provider and API-client tests pass:
 
 ## Phase 3 — Agent Core
 
-- [ ] Planner
-- [ ] Executor
+- [x] Planner
+- [x] Executor
 - [ ] Assessor
 - [ ] Decision engine
 - [ ] Authoritative phase machine
