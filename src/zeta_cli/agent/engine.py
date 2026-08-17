@@ -14,7 +14,11 @@ from zeta_cli.watchdog.budget import RecoveryBudget
 from zeta_cli.watchdog.coordinator import WatchdogCoordinator
 from zeta_cli.watchdog.events import WatchdogEventRecorder
 from zeta_cli.watchdog.snapshot import progress_record_from_state
-from zeta_cli.tools.fingerprinting import tool_fingerprint
+from zeta_cli.tools.fingerprinting import (
+    reasoning_fingerprint,
+    tool_fingerprint,
+    tool_result_fingerprint,
+)
 
 
 class AgentEngine:
@@ -50,6 +54,8 @@ class AgentEngine:
         current_state: AgentState,
         *,
         tool_call_fingerprint: str | None = None,
+        tool_result_fingerprint: str | None = None,
+        reasoning: str | None = None,
     ):
         if current_state.task_id is None:
             return
@@ -59,6 +65,31 @@ class AgentEngine:
             previous=progress_record_from_state(previous_state),
             current=progress_record_from_state(current_state),
             tool_call_fingerprint=tool_call_fingerprint,
+            tool_result_fingerprint=tool_result_fingerprint,
+            reasoning_fingerprint=(
+                reasoning_fingerprint(reasoning)
+                if reasoning is not None
+                else None
+            ),
+        )
+
+    def _observe_tool_result(
+        self,
+        state: AgentState,
+        previous_state: AgentState,
+        result,
+        *,
+        reasoning: str = "",
+    ):
+        if state.task_id is None:
+            return None
+
+        return self.watchdog.observe(
+            task_id=state.task_id,
+            previous=progress_record_from_state(previous_state),
+            current=progress_record_from_state(state),
+            tool_result_fingerprint=tool_result_fingerprint(result),
+            reasoning_fingerprint=reasoning_fingerprint(reasoning),
         )
 
     def start(self, *, task_id: str, goal: str):
@@ -191,7 +222,15 @@ class AgentEngine:
             if not planning_result.tool_calls:
                 raise ValueError("no tool call in replanned result")
 
-        return self.executor.execute(planning_result)
+        result = self.executor.execute(planning_result)
+
+        self._observe_tool_result(
+            state,
+            previous_state,
+            result,
+        )
+
+        return result
 
 
     def assess(self, result):
