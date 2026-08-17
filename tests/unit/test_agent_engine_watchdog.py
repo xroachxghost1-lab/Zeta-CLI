@@ -208,3 +208,41 @@ def test_engine_observe_watchdog_returns_replan_for_repeated_progress(tmp_path):
     assert decisions[-1][0].repeated is True
     assert decisions[-1][0].stalled is False
     assert decisions[-1][0].healthy is False
+
+from unittest.mock import Mock
+
+from zeta_cli.agent.engine import AgentEngine
+from zeta_cli.state import AgentState
+from zeta_cli.watchdog.progress import ProgressRecord
+
+
+def test_observe_watchdog_passes_result_and_reasoning_fingerprints():
+    planner = Mock()
+    state_store = Mock()
+    journal = Mock()
+    watchdog = Mock()
+
+    state = AgentState(task_id="task-1", goal="test")
+
+    engine = AgentEngine(
+        planner=planner,
+        state_store=state_store,
+        journal=journal,
+        watchdog=watchdog,
+    )
+
+    engine._observe_watchdog(
+        state,
+        state,
+        tool_call_fingerprint="call-1",
+        tool_result_fingerprint="result-1",
+        reasoning="same reasoning",
+    )
+
+    watchdog.observe.assert_called_once()
+
+    kwargs = watchdog.observe.call_args.kwargs
+
+    assert kwargs["tool_call_fingerprint"] == "call-1"
+    assert kwargs["tool_result_fingerprint"] == "result-1"
+    assert kwargs["reasoning_fingerprint"] is not None
