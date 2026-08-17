@@ -1,0 +1,76 @@
+from pathlib import Path
+
+from zeta_cli.state import (
+    AgentState,
+    StateStore,
+)
+from zeta_cli.constants import ALL_PHASES
+
+
+def test_initial_state():
+    state = AgentState()
+
+    assert state.phase == "BOOT"
+    assert state.task_id is None
+    assert state.goal is None
+    assert state.attempt == 0
+    assert state.completed is False
+    assert state.failed is False
+
+
+def test_state_can_track_task():
+    state = AgentState()
+
+    state.task_id = "task-001"
+    state.goal = "Build the agent"
+    state.phase = "PLAN"
+
+    assert state.task_id == "task-001"
+    assert state.goal == "Build the agent"
+    assert state.phase == "PLAN"
+
+
+def test_state_phase_must_be_valid():
+    state = AgentState()
+
+    for phase in ALL_PHASES:
+        state.phase = phase
+        assert state.phase == phase
+
+
+def test_state_store_round_trip(tmp_path: Path):
+    store = StateStore(tmp_path / "state.json")
+
+    state = AgentState(
+        task_id="task-123",
+        goal="Implement persistence",
+        phase="EXECUTE",
+        attempt=2,
+    )
+
+    store.save(state)
+
+    restored = store.load()
+
+    assert restored.task_id == "task-123"
+    assert restored.goal == "Implement persistence"
+    assert restored.phase == "EXECUTE"
+    assert restored.attempt == 2
+
+
+def test_missing_state_returns_initial_state(tmp_path: Path):
+    store = StateStore(tmp_path / "missing.json")
+
+    state = store.load()
+
+    assert state.phase == "BOOT"
+    assert state.task_id is None
+
+
+def test_state_store_creates_parent_directory(tmp_path: Path):
+    path = tmp_path / "nested" / "runtime" / "state.json"
+
+    store = StateStore(path)
+    store.save(AgentState(task_id="abc"))
+
+    assert path.exists()

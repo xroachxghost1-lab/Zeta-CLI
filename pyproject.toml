@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "zeta-cli"
+version = "0.1.0"
+description = "Persistent autonomous coding agent for Inception Mercury"
+requires-python = ">=3.10"
+dependencies = [
+    "inceptionai",
+    "rich",
+]
+
+[project.scripts]
+zeta = "zeta_cli.cli.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
