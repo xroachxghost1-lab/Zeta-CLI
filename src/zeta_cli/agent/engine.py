@@ -336,10 +336,19 @@ class AgentEngine:
         )
         self._observe_watchdog(previous_state, state)
 
+        if hasattr(result, "passed"):
+            passed = result.passed
+        elif hasattr(result, "ok"):
+            passed = result.ok
+        else:
+            raise TypeError(
+                "verify expects an Assessment or ToolResult"
+            )
+
         evidence = VerificationEvidence(
             source="agent",
             description=str(result.value),
-            passed=result.ok,
+            passed=passed,
         )
 
         verification = self.verification_policy.evaluate([evidence])
